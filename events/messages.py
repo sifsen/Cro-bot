@@ -24,7 +24,10 @@ class MessageEvents(commands.Cog):
                 await message.add_reaction(emoji)
 
         if 'horse' in content:
-            await message.add_reaction('🐎')
+            await message.add_reaction('🐴')
+
+        if 'honse' in content:
+            await message.add_reaction('🐴')
 
         if 'fish' in content:
             await message.add_reaction('🐟')
