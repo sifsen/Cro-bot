@@ -69,6 +69,8 @@ class Admin(commands.Cog):
             
             embed = discord.Embed(title="Server Configuration", color=0x2B2D31)
             
+            embed.set_thumbnail(url=ctx.guild.icon.url)
+
             # Logging channels section
             log_channels = [
                 f"Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else 'Not set'}",
