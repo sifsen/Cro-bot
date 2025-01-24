@@ -1,9 +1,5 @@
-import discord
 from discord.ext import commands
 
-################################
-## Event Handlers
-################################
 class EventHandlers(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -23,7 +19,7 @@ class EventHandlers(commands.Cog):
     async def on_member_join(self, member):
         channel = member.guild.system_channel
         if channel:
-            await channel.send(f'Welcome {member.mention} to the server!')
+            await channel.send(f'Teehee welcome {member.mention}!')
 
     #################################
     ## Command Error Hook
@@ -31,9 +27,17 @@ class EventHandlers(commands.Cog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
-            await ctx.send("Command not found!")
+            await ctx.send("That command doesn't exist.")
         elif isinstance(error, commands.MissingPermissions):
-            await ctx.send("You don't have permission to use this command!")
+            await ctx.send("You can't do that.")
+        elif isinstance(error, commands.MemberNotFound):
+            await ctx.send("I couldn't find that member.")
+        elif isinstance(error, commands.BotMissingPermissions):
+            await ctx.send("I can't do that.")
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send("Please provide an arg.")
+        else:
+            await ctx.send(f"An error occurred: {str(error)}")
 
 async def setup(bot):
     await bot.add_cog(EventHandlers(bot)) 
