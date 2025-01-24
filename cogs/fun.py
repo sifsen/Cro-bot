@@ -19,6 +19,12 @@ class Fun(commands.Cog):
         except Exception:
             await ctx.send("Format has to be in NdN!")
 
+    @commands.command()
+    async def echo(self, ctx, *, message: str):
+        """Echo a message"""
+        await ctx.message.delete()
+        await ctx.send(message)
+
     #################################
     ## Choose Command
     #################################
