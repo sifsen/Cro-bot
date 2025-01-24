@@ -3,7 +3,7 @@ import re
 
 from utils.helpers import PermissionHandler
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class Moderation(commands.Cog):
@@ -53,7 +53,7 @@ class Moderation(commands.Cog):
     #################################
     ## Kick Command
     #################################      
-    @commands.command()
+    @commands.command(aliases=['slap'])
     @PermissionHandler.has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kick a member from the server"""
@@ -99,7 +99,7 @@ class Moderation(commands.Cog):
     #################################
     ## Ban Command
     #################################   
-    @commands.command()
+    @commands.command(aliases=['kill'])
     @PermissionHandler.has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, *, reason=None):
         """Ban a member from the server"""
@@ -145,7 +145,7 @@ class Moderation(commands.Cog):
     #################################
     ## Unban Command
     #################################   
-    @commands.command()
+    @commands.command(aliases=['pardon'])
     @PermissionHandler.has_permissions(ban_members=True)
     async def unban(self, ctx, *, user_input):
         """Unban a member from the server"""
@@ -175,6 +175,43 @@ class Moderation(commands.Cog):
             
         except discord.Forbidden:
             await ctx.send("I don't have permission to unban members!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Timeout Command
+    #################################   
+    @commands.command(aliases=['timeout', 'silence'])
+    @PermissionHandler.has_permissions(moderate_members=True)
+    async def mute(self, ctx, member: discord.Member, time: str = None, *, reason=None):
+        """Timeout a member (e.g. 1h, 30m, 1d)"""
+        try:
+            if member.top_role >= ctx.author.top_role:
+                await ctx.send("You cannot timeout someone with a higher or equal role!")
+                return
+
+            if not time:
+                await ctx.send("Please provide a duration (e.g. 1h, 30m, 1d)")
+                return
+
+            duration = 0
+            if time.endswith('m'): duration = int(time[:-1]) * 60
+            elif time.endswith('h'): duration = int(time[:-1]) * 60 * 60
+            elif time.endswith('d'): duration = int(time[:-1]) * 24 * 60 * 60
+            else:
+                await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days)")
+                return
+
+            if duration <= 0:
+                await ctx.send("Duration must be positive")
+                return
+
+            await member.timeout(discord.utils.utcnow() + timedelta(seconds=duration), reason=reason)
+            await self.log_moderation_action(ctx, "Timeout", member, f"{time} - {reason if reason else 'No reason provided'}")
+            await ctx.send(f"{member.mention} has been timed out for {time}")
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to timeout that member!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
