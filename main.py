@@ -1,5 +1,8 @@
 import discord
 import os
+import json
+import random
+import asyncio
 
 from utils.settings import ServerSettings
 from discord.ext import commands
@@ -32,11 +35,33 @@ class Bot(commands.Bot):
         await self.load_extension("events.logging")
 
     #################################
-    ## On Ready Hook
+    ## Ready and Status
     #################################   
     async def on_ready(self):
         print(f"{self.user} is ready and online!")
-        await self.change_presence(activity=discord.Game(name="$help"))
+        
+        with open('data/strings.json', 'r') as f:
+            strings = json.load(f)
+            status_messages = strings['status']
+        
+        await self.change_presence(
+            status=discord.Status.idle,
+            activity=discord.CustomActivity(
+                name=random.choice(status_messages)
+            )
+        )
+        
+        async def rotate_status():
+            while True:
+                await asyncio.sleep(30)
+                await self.change_presence(
+                    status=discord.Status.idle,
+                    activity=discord.CustomActivity(
+                        name=random.choice(status_messages)
+                    )
+                )
+        
+        self.loop.create_task(rotate_status())
 
 def main():
     bot = Bot()
