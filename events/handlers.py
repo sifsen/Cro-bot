@@ -13,15 +13,6 @@ class EventHandlers(commands.Cog):
             return
 
     #################################
-    ## Member Join Hook
-    #################################   
-    @commands.Cog.listener()
-    async def on_member_join(self, member):
-        channel = member.guild.system_channel
-        if channel:
-            await channel.send(f'Teehee welcome {member.mention}!')
-
-    #################################
     ## Command Error Hook
     #################################   
     @commands.Cog.listener()
