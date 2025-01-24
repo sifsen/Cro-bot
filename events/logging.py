@@ -117,33 +117,59 @@ class LoggingEvents(commands.Cog):
 
         await self.log_to_channel(member.guild.id, "join_leave", embed)
 
-    #################################
-    ## Member Update
-    #################################
-    @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        if before.nick != after.nick or before.roles != after.roles:
-            embed = discord.Embed(
-                title="Member Updated",
-                color=discord.Color.blue(),
-                timestamp=datetime.utcnow()
-            )
-            embed.add_field(name="Member", value=f"{after.mention} ({after})", inline=True)
-            
-            if before.nick != after.nick:
-                embed.add_field(name="Nickname Change", value=f"Before: {before.nick or '*None*'}\nAfter: {after.nick or '*None*'}", inline=False)
-            
-            if before.roles != after.roles:
-                added_roles = set(after.roles) - set(before.roles)
-                removed_roles = set(before.roles) - set(after.roles)
-                
-                if added_roles:
-                    embed.add_field(name="Roles Added", value=", ".join(role.mention for role in added_roles), inline=False)
-                if removed_roles:
-                    embed.add_field(name="Roles Removed", value=", ".join(role.mention for role in removed_roles), inline=False)
 
-            embed.set_thumbnail(url=after.display_avatar.url)
-            await self.log_to_channel(after.guild.id, "profiles", embed)
+    #################################
+    ## User Update
+    #################################   
+    @commands.Cog.listener()
+    async def on_user_update(self, before, after):
+        if (before.avatar == after.avatar and 
+            before.name == after.name and 
+            before.global_name == after.global_name):
+            return
+            
+        embed = discord.Embed(
+            color=discord.Color.blue(),
+            timestamp=datetime.utcnow()
+        )
+        
+        embed.set_author(
+            name=after.name,
+            icon_url=after.display_avatar.url
+        )
+        
+        embed.set_thumbnail(url=after.display_avatar.url)
+        
+        embed.add_field(
+            name="", 
+            value=f"<@{after.id}> `{after.id}`",
+            inline=False
+        )
+        
+        if before.name != after.name:
+            embed.add_field(
+                name="",
+                value=f"{before.name} → {after.name}",
+                inline=False
+            )
+        
+        if before.global_name != after.global_name:
+            embed.add_field(
+                name="",
+                value=f"{before.global_name or '*None*'} → {after.global_name or '*None*'}",
+                inline=False
+            )
+
+        if before.avatar != after.avatar:
+            embed.add_field(
+                name="",
+                value=f"[View avatar]({after.display_avatar.url})",
+                inline=False
+            )
+        
+        for guild in self.bot.guilds:
+            if guild.get_member(after.id):
+                await self.log_to_channel(guild.id, "profiles", embed)
 
 async def setup(bot):
     await bot.add_cog(LoggingEvents(bot)) 
