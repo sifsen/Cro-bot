@@ -11,9 +11,9 @@ class Casual(commands.Cog):
     #################################
     @commands.command()
     async def about(self, ctx):
-        """About Nessy"""
+        """About Rei"""
         embed = discord.Embed(
-            title="✦ About Nessy ✦",
+            title="✦ About Rei ✦",
             description=(
                 "Work in progress"
             ),
