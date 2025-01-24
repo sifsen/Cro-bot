@@ -1,6 +1,7 @@
 import discord
-from discord.ext import commands
 import os
+
+from discord.ext import commands
 from config import TOKEN
 
 class Bot(commands.Bot):
@@ -24,6 +25,7 @@ class Bot(commands.Bot):
         
         print("Loading events...")
         await self.load_extension("events.handlers")
+        await self.load_extension("events.messages")
 
     #################################
     ## On Ready Hook
