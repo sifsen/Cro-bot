@@ -42,12 +42,16 @@ class LoggingEvents(commands.Cog):
             return
 
         embed = discord.Embed(
-            author=before.author,
-
             title="Message Edited",
             color=discord.Color.blue(),
             timestamp=datetime.utcnow()
         )
+        
+        embed.set_author(
+            name=before.author.name,
+            icon_url=before.author.display_avatar.url
+        )
+        
         embed.add_field(name="Before", value=before.content[:1024] or "*Empty*", inline=False)
         embed.add_field(name="After", value=after.content[:1024] or "*Empty*", inline=False)
         embed.add_field(name="Channel", value=before.channel.mention, inline=True)
