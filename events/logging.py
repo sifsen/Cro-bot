@@ -42,8 +42,7 @@ class LoggingEvents(commands.Cog):
             return
 
         embed = discord.Embed(
-            title="Message Edited",
-            color=discord.Color.blue(),
+            color=discord.Color.yellow(),
             timestamp=datetime.utcnow()
         )
         
@@ -55,9 +54,8 @@ class LoggingEvents(commands.Cog):
         embed.add_field(name="Before", value=before.content[:1024] or "*Empty*", inline=False)
         embed.add_field(name="After", value=after.content[:1024] or "*Empty*", inline=False)
         embed.add_field(name="Channel", value=before.channel.mention, inline=True)
-        embed.add_field(name="Author", value=before.author.mention, inline=True)
-        embed.add_field(name="Message ID", value=before.id, inline=True)
-        embed.add_field(name="Jump to Message", value=f"[Click Here]({before.jump_url})", inline=True)
+        embed.add_field(name="User ID", value=f"```{before.author.id}```", inline=False)
+        embed.add_field(name="", value=f"[Jump to message]({before.jump_url})", inline=True)
 
         await self.log_to_channel(before.guild.id, "edits", embed)
 
@@ -70,14 +68,18 @@ class LoggingEvents(commands.Cog):
             return
 
         embed = discord.Embed(
-            title="Message Deleted",
             color=discord.Color.red(),
             timestamp=datetime.utcnow()
         )
+
+        embed.set_author(
+            name=message.author.name,
+            icon_url=message.author.display_avatar.url
+        )
+        
         embed.add_field(name="Content", value=message.content[:1024] or "*Empty*", inline=False)
         embed.add_field(name="Channel", value=message.channel.mention, inline=True)
-        embed.add_field(name="Author", value=message.author.mention, inline=True)
-        embed.add_field(name="Message ID", value=message.id, inline=True)
+        embed.add_field(name="User ID", value=f"```{message.author.id}```", inline=False)
 
         await self.log_to_channel(message.guild.id, "deletions", embed)
 
