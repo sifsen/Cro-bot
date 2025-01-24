@@ -2,6 +2,7 @@ import discord
 from typing import Union
 from discord.ext import commands
 from functools import wraps
+from config import BOT_MASTERS
 
 ################################
 ## Check Permissions
@@ -29,11 +30,12 @@ class PermissionHandler:
         def decorator(func):
             @wraps(func)
             async def wrapper(self, ctx: commands.Context, *args, **kwargs):
-                # Check if user is the server owner
+                if str(ctx.author.id) in BOT_MASTERS:
+                    return await func(self, ctx, *args, **kwargs)
+
                 if ctx.author == ctx.guild.owner:
                     return await func(self, ctx, *args, **kwargs)
 
-                # Check all required permissions
                 missing_perms = []
                 for perm, required in permissions.items():
                     if required and not getattr(ctx.author.guild_permissions, perm, False):
@@ -57,6 +59,9 @@ class PermissionHandler:
         def decorator(func):
             @wraps(func)
             async def wrapper(self, ctx: commands.Context, *args, **kwargs):
+                if str(ctx.author.id) in BOT_MASTERS:
+                    return await func(self, ctx, *args, **kwargs)
+
                 if ctx.author == ctx.guild.owner:
                     return await func(self, ctx, *args, **kwargs)
 
