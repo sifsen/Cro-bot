@@ -1,4 +1,5 @@
 import random
+import json
 
 from discord.ext import commands
 
@@ -24,6 +25,23 @@ class Fun(commands.Cog):
         """Echo a message"""
         await ctx.message.delete()
         await ctx.send(message)
+
+    @commands.command(aliases=['punish', 'troll', 'bange', 'jail'])
+    @commands.has_permissions(ban_members=True)
+    async def bean(self, ctx, member: commands.MemberConverter = None):
+        """Bean a user (totally real ban command)"""
+        if not member:
+            return
+
+        if member.id == ctx.author.id:
+            await ctx.send("Nice try.")
+            return
+
+        with open('data/strings.json', 'r') as f:
+            strings = json.load(f)
+            action = random.choice(strings['user_was_x'])
+
+        await ctx.send(f"{member.display_name} was {action}")
 
     #################################
     ## Choose Command
