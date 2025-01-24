@@ -1,5 +1,8 @@
 import discord
+import random
+import json
 import re
+
 
 from utils.helpers import PermissionHandler
 from discord.ext import commands
@@ -119,7 +122,12 @@ class Moderation(commands.Cog):
 
                 await member.ban(reason=reason)
                 await self.log_moderation_action(ctx, "Ban", member, reason)
-                await confirm_message.edit(content=f"{member.mention} has been banned.", view=None)
+                
+                with open('data/strings.json', 'r') as f:
+                    strings = json.load(f)
+                    action = random.choice(strings['user_was_x'])
+                
+                await confirm_message.edit(content=f"{member.mention} was {action}", view=None)
                 await interaction.response.defer()
 
             async def cancel_callback(interaction):
