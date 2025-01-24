@@ -224,6 +224,41 @@ class Moderation(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
+    ## Unmute Command
+    #################################   
+    @commands.command(aliases=['unsilence'])
+    @PermissionHandler.has_permissions(moderate_members=True)
+    async def unmute(self, ctx, member: discord.Member, *, reason=None):
+        """Remove timeout from a member"""
+        try:
+            if member.top_role >= ctx.author.top_role:
+                await ctx.send("You cannot unmute someone with a higher or equal role!")
+                return
+
+            if not member.is_timed_out():
+                mute_role_id = self.bot.settings.get_server_setting(ctx.guild.id, "mute_role")
+                if not mute_role_id:
+                    await ctx.send("This user is not muted.")
+                    return
+                
+                mute_role = ctx.guild.get_role(int(mute_role_id))
+                if not mute_role or mute_role not in member.roles:
+                    await ctx.send("This user is not muted.")
+                    return
+                
+                await member.remove_roles(mute_role, reason=reason)
+            else:
+                await member.timeout(None, reason=reason)
+
+            await self.log_moderation_action(ctx, "Unmute", member, reason or "No reason provided")
+            await ctx.send(f"{member.mention} has been unmuted.")
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to unmute that member!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
     ## Role Command (Fuzzy Search)
     #################################
     def find_best_match(self, input_str, roles):
