@@ -1,16 +1,19 @@
 import discord
 import os
 
+from utils.settings import ServerSettings
 from discord.ext import commands
 from config import TOKEN
+
 
 class Bot(commands.Bot):
     def __init__(self):
         super().__init__(
             command_prefix="$",
             intents=discord.Intents.all(),
-            help_command=None
+            help_command=None,
         )
+        self.settings = ServerSettings()
 
     #################################
     ## Setup Hook
@@ -26,13 +29,14 @@ class Bot(commands.Bot):
         print("Loading events...")
         await self.load_extension("events.handlers")
         await self.load_extension("events.messages")
+        await self.load_extension("events.logging")
 
     #################################
     ## On Ready Hook
     #################################   
     async def on_ready(self):
         print(f"{self.user} is ready and online!")
-        await self.change_presence(activity=discord.Game(name="!help"))
+        await self.change_presence(activity=discord.Game(name="$help"))
 
 def main():
     bot = Bot()
