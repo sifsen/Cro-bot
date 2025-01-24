@@ -1,5 +1,6 @@
 import discord
 
+from utils.helpers import PermissionHandler
 from discord.ext import commands
 from datetime import datetime
 
@@ -9,44 +10,12 @@ class Admin(commands.Cog):
 
     async def cog_check(self, ctx):
         return ctx.author.guild_permissions.administrator
-        
-    #################################
-    ## Purge Command
-    #################################
-    @commands.command()
-    async def purge(self, ctx, amount: int):
-        """Delete a specified number of messages"""
-        try:
-            await ctx.channel.purge(limit=amount + 1)
-            msg = await ctx.send(f"Deleted {amount} messages.")
-            await msg.delete(delay=3)
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to delete messages.")
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
-
-    #################################
-    ## Role Command
-    #################################
-    @commands.command()
-    async def role(self, ctx, member: discord.Member, role: discord.Role):
-        """Add or remove a role from a member"""
-        try:
-            if role in member.roles:
-                await member.remove_roles(role)
-                await ctx.send(f"Removed role **{role.name}** from {member.mention}")
-            else:
-                await member.add_roles(role)
-                await ctx.send(f"Added role **{role.name}** to {member.mention}")
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to manage roles.")
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Nickname Command
     #################################
     @commands.command()
+    @PermissionHandler.has_permissions(manage_nicknames=True)
     async def nickname(self, ctx, member: discord.Member, *, new_nick=None):
         """Change a member's nickname"""
         try:
@@ -62,6 +31,7 @@ class Admin(commands.Cog):
     ## Server Info Command
     #################################
     @commands.command()
+    @PermissionHandler.has_permissions(manage_nicknames=True)
     async def serverinfo(self, ctx):
         """Display information about the server"""
         guild = ctx.guild
@@ -86,6 +56,97 @@ class Admin(commands.Cog):
             embed.set_thumbnail(url=guild.icon.url)
             
         await ctx.send(embed=embed)
+
+    #################################
+    ## Config Command
+    #################################
+    @commands.command()
+    @PermissionHandler.has_permissions(administrator=True)
+    async def config(self, ctx, setting=None, *, value=None):
+        """Configure server settings"""
+        if not setting:
+            settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+            
+            embed = discord.Embed(title="Server Configuration", color=0x2B2D31)
+            
+            # Logging channels section
+            log_channels = [
+                f"Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else 'Not set'}",
+                f"Mod Audit: {ctx.guild.get_channel(settings.get('log_channel_mod_audit')).mention if settings.get('log_channel_mod_audit') else 'Not set'}",
+                f"Edits: {ctx.guild.get_channel(settings.get('log_channel_edits')).mention if settings.get('log_channel_edits') else 'Not set'}",
+                f"Deletions: {ctx.guild.get_channel(settings.get('log_channel_deletions')).mention if settings.get('log_channel_deletions') else 'Not set'}",
+                f"Profiles: {ctx.guild.get_channel(settings.get('log_channel_profiles')).mention if settings.get('log_channel_profiles') else 'Not set'}"
+            ]
+            
+            # Staff roles section
+            staff_roles = [
+                f"Mod Role: {ctx.guild.get_role(settings.get('mod_role')).mention if settings.get('mod_role') else 'Not set'}",
+                f"Admin Role: {ctx.guild.get_role(settings.get('admin_role')).mention if settings.get('admin_role') else 'Not set'}"
+            ]
+            
+            description = [
+                "**Logging Channels**",
+                "\n".join(log_channels),
+                "",
+                "**Staff Roles**",
+                "\n".join(staff_roles),
+                "",
+                "**Usage**",
+                "Available settings: joinleave, modaudit, edits, deletions, profiles, modrole, adminrole",
+                "Format: $config <setting> <value>"
+            ]
+            
+            embed.description = "\n".join(description)
+            embed.set_footer(text=ctx.guild.name)
+            await ctx.send(embed=embed)
+            return
+
+        setting_map = {
+            "joinleave": "log_channel_join_leave",
+            "modaudit": "log_channel_mod_audit",
+            "edits": "log_channel_edits",
+            "deletions": "log_channel_deletions",
+            "profiles": "log_channel_profiles",
+            "modrole": "mod_role",
+            "adminrole": "admin_role"
+        }
+
+        if setting.lower() not in setting_map:
+            await ctx.send("Invalid setting. Use `$config` to see available settings.")
+            return
+
+        setting_key = setting_map[setting.lower()]
+
+        if not value or value.lower() in ['none', 'clear']:
+            self.bot.settings.set_server_setting(ctx.guild.id, setting_key, None)
+            await ctx.send(f"Cleared {setting} setting.")
+            return
+
+        if setting_key.startswith('log_channel_'):
+            try:
+                channel_id = int(''.join(filter(str.isdigit, value)))
+                channel = ctx.guild.get_channel(channel_id)
+                if not channel:
+                    await ctx.send("Please provide a valid channel mention or ID.")
+                    return
+                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, channel.id)
+                await ctx.send(f"Set {setting} channel to {channel.mention}")
+            except ValueError:
+                await ctx.send("Please provide a valid channel mention or ID.")
+                return
+
+        elif setting_key.endswith('_role'):
+            try:
+                role_id = int(''.join(filter(str.isdigit, value)))
+                role = ctx.guild.get_role(role_id)
+                if not role:
+                    await ctx.send("Please provide a valid role mention or ID.")
+                    return
+                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, role.id)
+                await ctx.send(f"Set {setting} to {role.mention}")
+            except ValueError:
+                await ctx.send("Please provide a valid role mention or ID.")
+                return
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
