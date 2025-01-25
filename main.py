@@ -11,8 +11,10 @@ from config import TOKEN
 
 class Bot(commands.Bot):
     def __init__(self):
+        self.default_prefixes = ['$', '%', '?', '!']
+        
         super().__init__(
-            command_prefix="$",
+            command_prefix=self.get_prefix,
             intents=discord.Intents.all(),
             help_command=None,
         )
@@ -51,6 +53,9 @@ class Bot(commands.Bot):
             )
         )
         
+        #################################
+        ## Status Rotator
+        #################################
         async def rotate_status():
             while True:
                 await asyncio.sleep(30)
@@ -62,6 +67,13 @@ class Bot(commands.Bot):
                 )
         
         self.loop.create_task(rotate_status())
+
+    #################################
+    ## Get Prefix
+    #################################
+    async def get_prefix(self, message):
+        prefixes = self.default_prefixes.copy()
+        return prefixes
 
 def main():
     bot = Bot()
