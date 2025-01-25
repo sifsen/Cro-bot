@@ -94,7 +94,7 @@ class LoggingEvents(commands.Cog):
             timestamp=datetime.utcnow()
         )
         embed.add_field(name="Member", value=f"{member.mention} ({member})", inline=True)
-        embed.add_field(name="ID", value=member.id, inline=True)
+        embed.add_field(name="ID", value=f"```{member.id}```", inline=True)
         embed.add_field(name="Account Created", value=member.created_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
         embed.set_thumbnail(url=member.display_avatar.url)
 
@@ -111,7 +111,7 @@ class LoggingEvents(commands.Cog):
             timestamp=datetime.utcnow()
         )
         embed.add_field(name="Member", value=f"{member.mention} ({member})", inline=True)
-        embed.add_field(name="ID", value=member.id, inline=True)
+        embed.add_field(name="ID", value=f"```{member.id}```", inline=True)
         embed.add_field(name="Joined At", value=member.joined_at.strftime("%Y-%m-%d %H:%M:%S"), inline=True)
         embed.set_thumbnail(url=member.display_avatar.url)
 
