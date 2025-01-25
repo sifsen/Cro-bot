@@ -20,12 +20,18 @@ class Fun(commands.Cog):
         except Exception:
             await ctx.send("Format has to be in NdN!")
 
+    #################################
+    ## Echo Command
+    #################################
     @commands.command()
     async def echo(self, ctx, *, message: str):
         """Echo a message"""
         await ctx.message.delete()
         await ctx.send(message)
 
+    #################################
+    ## Bean Command
+    #################################
     @commands.command(aliases=['punish', 'troll', 'bange', 'jail'])
     @commands.has_permissions(ban_members=True)
     async def bean(self, ctx, member: commands.MemberConverter = None):
