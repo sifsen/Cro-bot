@@ -67,23 +67,33 @@ class Admin(commands.Cog):
         if not setting:
             settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
             
-            embed = discord.Embed(title="Server Configuration", color=0x2B2D31)
+            embed = discord.Embed(
+                title="Server Configuration",
+                color=discord.Color.dark_theme()
+            )
             
-            embed.set_thumbnail(url=ctx.guild.icon.url)
+            if ctx.guild.icon:
+                embed.set_thumbnail(url=ctx.guild.icon.url)
 
-            # Logging channels section
+            # Logging Channels
             log_channels = [
-                f"Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else 'Not set'}",
-                f"Mod Audit: {ctx.guild.get_channel(settings.get('log_channel_mod_audit')).mention if settings.get('log_channel_mod_audit') else 'Not set'}",
-                f"Edits: {ctx.guild.get_channel(settings.get('log_channel_edits')).mention if settings.get('log_channel_edits') else 'Not set'}",
-                f"Deletions: {ctx.guild.get_channel(settings.get('log_channel_deletions')).mention if settings.get('log_channel_deletions') else 'Not set'}",
-                f"Profiles: {ctx.guild.get_channel(settings.get('log_channel_profiles')).mention if settings.get('log_channel_profiles') else 'Not set'}"
+                f"• Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else '`Not Set`'}",
+                f"• Mod Audit: {ctx.guild.get_channel(settings.get('log_channel_mod_audit')).mention if settings.get('log_channel_mod_audit') else '`Not Set`'}",
+                f"• Edits: {ctx.guild.get_channel(settings.get('log_channel_edits')).mention if settings.get('log_channel_edits') else '`Not Set`'}",
+                f"• Deletions: {ctx.guild.get_channel(settings.get('log_channel_deletions')).mention if settings.get('log_channel_deletions') else '`Not Set`'}",
+                f"• Profiles: {ctx.guild.get_channel(settings.get('log_channel_profiles')).mention if settings.get('log_channel_profiles') else '`Not Set`'}"
             ]
-            
-            # Staff roles section
+
+            # Staff Roles
             staff_roles = [
-                f"Mod Role: {ctx.guild.get_role(settings.get('mod_role')).mention if settings.get('mod_role') else 'Not set'}",
-                f"Admin Role: {ctx.guild.get_role(settings.get('admin_role')).mention if settings.get('admin_role') else 'Not set'}"
+                f"• Mod Role: {ctx.guild.get_role(settings.get('mod_role')).mention if settings.get('mod_role') else '`Not Set`'}",
+                f"• Admin Role: {ctx.guild.get_role(settings.get('admin_role')).mention if settings.get('admin_role') else '`Not Set`'}"
+            ]
+
+            # Starboard
+            starboard = [
+                f"• Channel: {ctx.guild.get_channel(settings.get('starboard_channel')).mention if settings.get('starboard_channel') else '`Not Set`'}",
+                f"• Threshold: {settings.get('starboard_threshold', '`Not Set`')} ⭐"
             ]
             
             description = [
@@ -93,13 +103,18 @@ class Admin(commands.Cog):
                 "**Staff Roles**",
                 "\n".join(staff_roles),
                 "",
-                "**Usage**",
-                "Available settings: joinleave, modaudit, edits, deletions, profiles, modrole, adminrole",
-                "Format: $config <setting> <value>"
+                "**Starboard**",
+                "\n".join(starboard),
+                "",
+                "**Available Settings**",
+                "`joinleave` `modaudit` `edits` `deletions` `profiles`",
+                "`modrole` `adminrole` `starboard` `starthreshold`",
+                "",
+                "*Use `config <setting> <value>` to modify settings*"
             ]
             
             embed.description = "\n".join(description)
-            embed.set_footer(text=ctx.guild.name)
+            embed.set_footer(text=f"{ctx.guild.name}")
             await ctx.send(embed=embed)
             return
 
@@ -110,7 +125,9 @@ class Admin(commands.Cog):
             "deletions": "log_channel_deletions",
             "profiles": "log_channel_profiles",
             "modrole": "mod_role",
-            "adminrole": "admin_role"
+            "adminrole": "admin_role",
+            "starboard": "starboard_channel",
+            "starthreshold": "starboard_threshold"
         }
 
         if setting.lower() not in setting_map:
@@ -124,7 +141,7 @@ class Admin(commands.Cog):
             await ctx.send(f"Cleared {setting} setting.")
             return
 
-        if setting_key.startswith('log_channel_'):
+        if setting_key.startswith('log_channel_') or setting_key == 'starboard_channel':
             try:
                 channel_id = int(''.join(filter(str.isdigit, value)))
                 channel = ctx.guild.get_channel(channel_id)
@@ -148,6 +165,18 @@ class Admin(commands.Cog):
                 await ctx.send(f"Set {setting} to {role.mention}")
             except ValueError:
                 await ctx.send("Please provide a valid role mention or ID.")
+                return
+
+        elif setting_key == 'starboard_threshold':
+            try:
+                threshold = int(value)
+                if threshold < 1:
+                    await ctx.send("Threshold must be at least 1.")
+                    return
+                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, threshold)
+                await ctx.send(f"Set starboard threshold to {threshold}⭐")
+            except ValueError:
+                await ctx.send("Please provide a valid number for the threshold.")
                 return
 
 async def setup(bot):
