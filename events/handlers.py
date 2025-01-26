@@ -9,6 +9,7 @@ class EventHandlers(commands.Cog):
         self.bot = bot
         self.starboard_cache = {}
         self.starboard_emoji_cache = {}
+        self.deleted_messages = {}
 
     #################################
     ## Message Hook
@@ -153,6 +154,28 @@ class EventHandlers(commands.Cog):
                 self.starboard_cache[message.id] = star_message.id
         except Exception as e:
             print(f"Error handling starboard message: {e}")
+
+    @commands.Cog.listener()
+    async def on_message_delete(self, message):
+        if message.author.bot:
+            return
+            
+        if not message.guild:
+            return
+            
+        if not message.content and not message.attachments:
+            return
+            
+        if message.guild.id not in self.deleted_messages:
+            self.deleted_messages[message.guild.id] = {}
+            
+        self.deleted_messages[message.guild.id][message.channel.id] = {
+            'content': message.content,
+            'author': message.author,
+            'timestamp': message.created_at,
+            'attachments': [a.url for a in message.attachments if a.content_type and a.content_type.startswith('image/')],
+            'reference': message.reference.message_id if message.reference else None
+        }
 
 async def setup(bot):
     await bot.add_cog(EventHandlers(bot)) 
