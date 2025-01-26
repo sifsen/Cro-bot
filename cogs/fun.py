@@ -1,5 +1,6 @@
 import random
 import json
+import discord
 
 from discord.ext import commands
 
@@ -56,6 +57,44 @@ class Fun(commands.Cog):
     async def choose(self, ctx, *choices: str):
         """Choose between multiple choices"""
         await ctx.send(random.choice(choices))
+
+    #################################
+    ## Snipe Command
+    #################################
+    @commands.command()
+    async def snipe(self, ctx):
+        """Shows the last deleted message in the channel"""
+        handlers = self.bot.get_cog('EventHandlers')
+        if not handlers:
+            return
+            
+        guild_deletes = handlers.deleted_messages.get(ctx.guild.id, {})
+        deleted_msg = guild_deletes.get(ctx.channel.id)
+        
+        if not deleted_msg:
+            await ctx.send("There's nothing to snipe!")
+            return
+            
+        embed = discord.Embed(
+            description=deleted_msg['content'] or "*No text content*",
+            color=0x2B2D31,
+            timestamp=deleted_msg['timestamp']
+        )
+        
+        embed.set_author(
+            name=deleted_msg['author'].name,
+            icon_url=deleted_msg['author'].display_avatar.url
+        )
+        
+        if deleted_msg['reference']:
+            embed.description += f"\n\nReplying to [this message]({ctx.channel.jump_url}/{deleted_msg['reference']})"
+            
+        if deleted_msg['attachments']:
+            embed.set_image(url=deleted_msg['attachments'][0])
+            
+        embed.set_footer(text=f"Sniped by {ctx.author.name}")
+        
+        await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
