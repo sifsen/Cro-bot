@@ -20,6 +20,15 @@ class Fun(commands.Cog):
             await ctx.send(f"Results: {', '.join(map(str, result))}")
         except Exception:
             await ctx.send("Format has to be in NdN!")
+    
+    #################################
+    ## Coinflip Command
+    #################################
+    @commands.command(aliases=['cf', 'flip'])
+    async def coinflip(self, ctx):
+        """Flip a coin"""
+        result = random.choice(['Heads', 'Tails'])
+        await ctx.send(f"You got **{result}**!")
 
     #################################
     ## Echo Command
