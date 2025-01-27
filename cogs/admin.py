@@ -3,6 +3,10 @@ import discord
 from utils.helpers import PermissionHandler
 from discord.ext import commands
 from datetime import datetime
+import io
+import contextlib
+import textwrap
+import traceback
 
 class Admin(commands.Cog):
     def __init__(self, bot):
@@ -178,6 +182,52 @@ class Admin(commands.Cog):
             except ValueError:
                 await ctx.send("Please provide a valid number for the threshold.")
                 return
+
+    @commands.command(name='exe')
+    @commands.is_owner()
+    async def execute_code(self, ctx, *, code: str):
+        """Execute Python code"""
+        await ctx.message.delete()
+        
+        if code.startswith('```python'):
+            code = code[9:]
+        elif code.startswith('```py'):
+            code = code[5:]
+        elif code.startswith('```'):
+            code = code[3:]
+        if code.endswith('```'):
+            code = code[:-3]
+        
+        env = {
+            'bot': self.bot,
+            'ctx': ctx,
+            'discord': discord,
+            'commands': commands,
+            'channel': ctx.channel,
+            'author': ctx.author,
+            'guild': ctx.guild,
+            'message': ctx.message
+        }
+
+        env.update(globals())
+        
+        wrapped_code = (
+            'async def _execute():\n' +
+            textwrap.indent(code, '    ')
+        )
+
+        stdout = io.StringIO()
+        
+        try:
+            exec(wrapped_code, env)
+            with contextlib.redirect_stdout(stdout):
+                await env['_execute']()
+                
+        except Exception as e:
+            error = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            if len(error) > 1990:
+                error = error[:1990] + "..."
+            await ctx.author.send(f"```py\n{error}\n```")
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
