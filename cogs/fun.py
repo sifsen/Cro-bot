@@ -142,10 +142,13 @@ class Fun(commands.Cog):
         except (FileNotFoundError, json.JSONDecodeError):
             cookie_data = {}
         
-        if str(thanked_user.id) not in cookie_data:
-            cookie_data[str(thanked_user.id)] = 0
+        if str(thanked_user.id) in cookie_data:
+            if isinstance(cookie_data[str(thanked_user.id)], int):
+                cookie_data[str(thanked_user.id)] = [cookie_data[str(thanked_user.id)], 0]
+        else:
+            cookie_data[str(thanked_user.id)] = [0, 0]
         
-        cookie_data[str(thanked_user.id)] += 1
+        cookie_data[str(thanked_user.id)][0] += 1
         
         with open(cookie_file, 'w') as f:
             json.dump(cookie_data, f, indent=2)
@@ -163,9 +166,19 @@ class Fun(commands.Cog):
         except (FileNotFoundError, json.JSONDecodeError):
             cookie_data = {}
         
-        cookie_count = cookie_data.get(str(member.id), 0)
+        if str(member.id) in cookie_data:
+            if isinstance(cookie_data[str(member.id)], int):
+                cookie_data[str(member.id)] = [cookie_data[str(member.id)], 0]
+                with open('data/cookies.json', 'w') as f:
+                    json.dump(cookie_data, f, indent=2)
+        
+        user_data = cookie_data.get(str(member.id), [0, 0])
+        cookie_count, eaten_count = user_data
+        
         cookie_text = "cookie" if cookie_count == 1 else "cookies"
-        await ctx.send(f"{member.mention} has **{cookie_count}** {cookie_text}! 🍪")
+        eaten_text = "cookie" if eaten_count == 1 else "cookies"
+        
+        await ctx.send(f"{member.mention} has **{cookie_count}** {cookie_text}! 🍪\nThey have eaten **{eaten_count}** {eaten_text} in total.")
 
     @commands.command()
     async def eat(self, ctx, amount: int = 1):
@@ -176,14 +189,15 @@ class Fun(commands.Cog):
         except (FileNotFoundError, json.JSONDecodeError):
             cookie_data = {}
         
-        user_cookies = cookie_data.get(str(ctx.author.id), 0)
+        user_data = cookie_data.get(str(ctx.author.id), [0, 0])
+        user_cookies, eaten_cookies = user_data
         
         if user_cookies < amount:
             cookie_text = "cookie" if user_cookies == 1 else "cookies"
             await ctx.send(f"You have **{user_cookies}** {cookie_text}")
             return
         
-        cookie_data[str(ctx.author.id)] = user_cookies - amount
+        cookie_data[str(ctx.author.id)] = [user_cookies - amount, eaten_cookies + amount]
         
         with open('data/cookies.json', 'w') as f:
             json.dump(cookie_data, f, indent=2)
@@ -214,17 +228,27 @@ class Fun(commands.Cog):
         except (FileNotFoundError, json.JSONDecodeError):
             cookie_data = {}
         
-        user_cookies = cookie_data.get(str(ctx.author.id), 0)
+        if str(ctx.author.id) in cookie_data:
+            if isinstance(cookie_data[str(ctx.author.id)], int):
+                cookie_data[str(ctx.author.id)] = [cookie_data[str(ctx.author.id)], 0]
+        else:
+            cookie_data[str(ctx.author.id)] = [0, 0]
+        
+        if str(member.id) in cookie_data:
+            if isinstance(cookie_data[str(member.id)], int):
+                cookie_data[str(member.id)] = [cookie_data[str(member.id)], 0]
+        else:
+            cookie_data[str(member.id)] = [0, 0]
+        
+        user_cookies = cookie_data[str(ctx.author.id)][0]
         
         if user_cookies < amount:
-            await ctx.send(f"You have **{user_cookies}** cookies")
+            cookie_text = "cookie" if user_cookies == 1 else "cookies"
+            await ctx.send(f"You have **{user_cookies}** {cookie_text}")
             return
         
-        if str(member.id) not in cookie_data:
-            cookie_data[str(member.id)] = 0
-        
-        cookie_data[str(ctx.author.id)] = user_cookies - amount
-        cookie_data[str(member.id)] += amount
+        cookie_data[str(ctx.author.id)][0] = user_cookies - amount
+        cookie_data[str(member.id)][0] += amount
         
         with open('data/cookies.json', 'w') as f:
             json.dump(cookie_data, f, indent=2)
