@@ -117,7 +117,7 @@ class Fun(commands.Cog):
             return
         
         content = message.content.lower()
-        thank_variants = ['thank', 'thanks', 'thx', 'ty', 'tysm', 'tyvm']
+        thank_variants = ['thank', 'thanks', 'thx', 'ty', 'tysm', 'tyvm', 'thank you', 'thankyou', 'thnks']
         
         if not any(variant in content for variant in thank_variants):
             return
