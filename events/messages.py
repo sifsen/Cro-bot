@@ -49,5 +49,58 @@ class MessageEvents(commands.Cog):
             embed.set_thumbnail(url=f"https://singlecolorimage.com/get/{hex_color[1:]}/75x75")
             await message.channel.send(embed=embed)
 
+        #################################
+        ## Quote Thing
+        #################################
+        message_link_pattern = r'https?:\/\/(?:.*)?discord\.com\/channels\/(\d+)\/(\d+)\/(\d+)'
+        if re.search(message_link_pattern, message.content):
+            matches = re.finditer(message_link_pattern, message.content)
+            for match in matches:
+                guild_id, channel_id, message_id = map(int, match.groups())
+                
+                if guild_id != message.guild.id:
+                    continue
+                    
+                try:
+                    channel = self.bot.get_channel(channel_id)
+                    if not channel:
+                        continue
+                        
+                    quoted_msg = await channel.fetch_message(message_id)
+                    if not quoted_msg:
+                        continue
+                        
+                    embed = discord.Embed(
+                        description=quoted_msg.content or "*No text content*",
+                        color=0x2B2D31,
+                        timestamp=quoted_msg.created_at
+                    )
+                    
+                    embed.set_author(
+                        name=quoted_msg.author.name,
+                        icon_url=quoted_msg.author.display_avatar.url
+                    )
+                    
+                    if quoted_msg.attachments and quoted_msg.attachments[0].content_type.startswith('image/'):
+                        embed.set_image(url=quoted_msg.attachments[0].url)
+                    elif quoted_msg.embeds and any(e.provider and e.provider.name == "Tenor" for e in quoted_msg.embeds):
+                        tenor_embed = next(e for e in quoted_msg.embeds if e.provider and e.provider.name == "Tenor")
+                        if tenor_embed.thumbnail and tenor_embed.thumbnail.url:
+                            tenor_match = re.match(r'^https://media\.tenor\.com/([a-zA-Z0-9_-]+)e/[a-zA-Z0-9_-]+\.png$', tenor_embed.thumbnail.url)
+                            if tenor_match:
+                                gif_url = f"https://c.tenor.com/{tenor_match.group(1)}C/tenor.gif"
+                                embed.set_image(url=gif_url)
+                                
+                    embed.add_field(
+                        name="", 
+                        value=f"[Jump to message]({quoted_msg.jump_url})",
+                        inline=False
+                    )
+                    
+                    await message.channel.send(embed=embed)
+                    
+                except (discord.NotFound, discord.Forbidden):
+                    continue
+
 async def setup(bot):
     await bot.add_cog(MessageEvents(bot))
