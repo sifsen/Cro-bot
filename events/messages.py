@@ -37,17 +37,18 @@ class MessageEvents(commands.Cog):
         #################################
         hex_pattern = r'(?:#|0x)(?:[0-9a-fA-F]{6})'
         if re.search(hex_pattern, message.content):
-            hex_match = re.search(hex_pattern, message.content).group()
-            hex_color = hex_match.replace('0x', '#')
-            color_int = int(hex_color[1:], 16)
+            if not re.search(r'<[@#][!&]?\d+>', message.content):
+                hex_match = re.search(hex_pattern, message.content).group()
+                hex_color = hex_match.replace('0x', '#')
+                color_int = int(hex_color[1:], 16)
 
-            embed = discord.Embed(
-                title=f"{hex_color}",
-                description=f"RGB: {tuple(int(hex_color[i:i+2], 16) for i in (1, 3, 5))}",
-                color=color_int
-            )
-            embed.set_thumbnail(url=f"https://singlecolorimage.com/get/{hex_color[1:]}/75x75")
-            await message.channel.send(embed=embed)
+                embed = discord.Embed(
+                    title=f"{hex_color}",
+                    description=f"RGB: {tuple(int(hex_color[i:i+2], 16) for i in (1, 3, 5))}",
+                    color=color_int
+                )
+                embed.set_thumbnail(url=f"https://singlecolorimage.com/get/{hex_color[1:]}/75x75")
+                await message.channel.send(embed=embed)
 
         #################################
         ## Quote Thing
