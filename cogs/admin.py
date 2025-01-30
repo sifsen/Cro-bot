@@ -18,7 +18,7 @@ class Admin(commands.Cog):
     #################################
     ## Nickname Command
     #################################
-    @commands.command()
+    @commands.command(aliases=['nick'])
     @PermissionHandler.has_permissions(manage_nicknames=True)
     async def nickname(self, ctx, member: discord.Member, *, new_nick=None):
         """Change a member's nickname"""
@@ -34,7 +34,7 @@ class Admin(commands.Cog):
     #################################
     ## Server Info Command
     #################################
-    @commands.command()
+    @commands.command(aliases=['server'])
     @PermissionHandler.has_permissions(manage_nicknames=True)
     async def serverinfo(self, ctx):
         """Display information about the server"""
@@ -79,7 +79,6 @@ class Admin(commands.Cog):
             if ctx.guild.icon:
                 embed.set_thumbnail(url=ctx.guild.icon.url)
 
-            # Logging Channels
             log_channels = [
                 f"• Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else '`Not Set`'}",
                 f"• Mod Audit: {ctx.guild.get_channel(settings.get('log_channel_mod_audit')).mention if settings.get('log_channel_mod_audit') else '`Not Set`'}",
@@ -88,13 +87,11 @@ class Admin(commands.Cog):
                 f"• Profiles: {ctx.guild.get_channel(settings.get('log_channel_profiles')).mention if settings.get('log_channel_profiles') else '`Not Set`'}"
             ]
 
-            # Staff Roles
             staff_roles = [
                 f"• Mod Role: {ctx.guild.get_role(settings.get('mod_role')).mention if settings.get('mod_role') else '`Not Set`'}",
                 f"• Admin Role: {ctx.guild.get_role(settings.get('admin_role')).mention if settings.get('admin_role') else '`Not Set`'}"
             ]
 
-            # Starboard
             starboard = [
                 f"• Channel: {ctx.guild.get_channel(settings.get('starboard_channel')).mention if settings.get('starboard_channel') else '`Not Set`'}",
                 f"• Threshold: {settings.get('starboard_threshold', '`Not Set`')} ⭐"
