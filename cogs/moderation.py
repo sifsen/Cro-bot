@@ -2,56 +2,181 @@ import discord
 import random
 import json
 import re
-
+import base64
+import time
+from typing import Union
 
 from utils.helpers import PermissionHandler
 from discord.ext import commands
 from datetime import datetime, timedelta
+from utils.auditlogs import ModLogger
 
 
 class Moderation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.mod_log_file = "data/mod_logs.json"
+        self.last_case_time = 0
+        self.case_counter = 0
+        self.logger = ModLogger(bot)
 
-    async def log_moderation_action(self, ctx, action, member, reason):
-        title_map = {
-            'Kick': 'Member kicked',
-            'Ban': 'Member banned',
-            'Unban': 'Member unbanned',
-            'Mute': 'Member muted',
-            'Unmute': 'Member unmuted',
-            'Warn': 'Member warned',
-            'Timeout': 'Member timed out',
-            'Note': 'Note added'
-        }
+    def generate_case_id(self) -> str:
+        """Generate a unique case ID based on timestamp"""
+        current_time = int(time.time())
         
-        embed = discord.Embed(
-            title=title_map.get(action, f"Member {action}"),
-            description=f"**Action:** {action}\n**Target:** {member.mention} (`{member.id}`)\n**Reason:** {reason or 'No reason provided'}",
-            color=discord.Color.red(),
-            timestamp=datetime.utcnow()
-        )
+        if current_time == self.last_case_time:
+            self.case_counter += 1
+        else:
+            self.last_case_time = current_time
+            self.case_counter = 0
         
-        embed.add_field(
-            name="Moderator",
-            value=f"{ctx.author.mention} (`{ctx.author.id}`)",
-            inline=True
-        )
+        unique_num = (current_time << 16) | (self.case_counter << 8) | random.randint(0, 255)
         
-        embed.add_field(
-            name="Channel",
-            value=ctx.channel.mention,
-            inline=True
-        )
+        case_id = base64.b32encode(unique_num.to_bytes(8, 'big')).decode('utf-8').rstrip('=')[:8]
+        return case_id
 
-        embed.set_footer(text=f"Action taken in #{ctx.channel.name}")
-        embed.set_thumbnail(url=member.display_avatar.url)
+    async def save_mod_action(self, guild_id: int, action: dict):
+        """Save a moderation action to the records"""
+        try:
+            with open(self.mod_log_file, 'r') as f:
+                records = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            records = {}
 
-        mod_audit_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_modaudit")
-        if mod_audit_channel_id:
-            channel = ctx.guild.get_channel(int(mod_audit_channel_id))
-            if channel:
-                await channel.send(embed=embed)
+        guild_id = str(guild_id)
+        if guild_id not in records:
+            records[guild_id] = {
+                'cases': {},
+                'users': {}
+            }
+
+        case_id = self.generate_case_id()
+        action['case_id'] = case_id
+        
+        records[guild_id]['cases'][case_id] = action
+        
+        user_id = str(action['user_id'])
+        user = await self.bot.fetch_user(action['user_id'])
+        
+        if user_id not in records[guild_id]['users']:
+            records[guild_id]['users'][user_id] = {
+                'username': f"{user.name}#{user.discriminator}" if user.discriminator != '0' else user.name,
+                'cases': []
+            }
+        else:
+            records[guild_id]['users'][user_id]['username'] = f"{user.name}#{user.discriminator}" if user.discriminator != '0' else user.name
+                
+        records[guild_id]['users'][user_id]['cases'].append(case_id)
+
+        with open(self.mod_log_file, 'w') as f:
+            json.dump(records, f, indent=2)
+            
+        return case_id
+
+    @commands.command(aliases=['history', 'infractions'])
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def records(self, ctx, user: Union[discord.Member, discord.User, str]):
+        """View a member's moderation record"""
+        try:
+            if isinstance(user, str):
+                if user.isdigit():
+                    user = await self.bot.fetch_user(int(user))
+                else:
+                    mention_match = re.match(r'<@!?(\d+)>', user)
+                    if mention_match:
+                        user = await self.bot.fetch_user(int(mention_match.group(1)))
+                    else:
+                        await ctx.send("Please provide a valid user ID or mention.")
+                        return
+
+            with open(self.mod_log_file, 'r') as f:
+                records = json.load(f)
+
+            guild_records = records.get(str(ctx.guild.id), {}).get('users', {})
+            user_data = guild_records.get(str(user.id))
+
+            if not user_data or not user_data['cases']:
+                await ctx.send(f"No moderation records found for {user.mention}")
+                return
+
+            embed = discord.Embed(
+                title=f"Member Records | Page 1/1",
+                color=0x2B2D31,
+                timestamp=datetime.utcnow()
+            )
+            
+            embed.description = f"**{user.name}**\nMention: {user.mention}\n```javascript\nID: {user.id}```\n**Total Records:** {len(user_data['cases'])}"
+            embed.set_thumbnail(url=user.display_avatar.url)
+
+            case_records = records[str(ctx.guild.id)]['cases']
+            
+            cases_to_show = user_data['cases'][-10:]
+            cases_to_show.reverse()
+            
+            for case_id in cases_to_show:
+                record = case_records[case_id]
+                action_time = datetime.fromisoformat(record['timestamp'])
+                moderator = ctx.guild.get_member(record['mod_id'])
+                mod_name = moderator.name if moderator else "Unknown Moderator"
+
+                embed.add_field(
+                    name=f"**{record['action']}**",
+                    value=f"**Case ID:** `{case_id}`\n**Moderator:** {moderator.mention if moderator else mod_name}\nWhen: {discord.utils.format_dt(action_time)}\n> **Reason:**\n> {record['reason'] or 'No reason provided'}" + (f"\n> **Duration:** {record['duration']}" if 'duration' in record else ""),
+                    inline=False
+                )
+
+            embed.set_footer(text=f"Most recent {min(len(user_data['cases']), 10)} of {len(user_data['cases'])} records")
+            await ctx.send(embed=embed)
+
+        except discord.NotFound:
+            await ctx.send("Could not find that user.")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @commands.command(aliases=['editcase'])
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def editrecord(self, ctx, case_id: str, *, new_reason: str):
+        """Edit the reason for a moderation case"""
+        try:
+            with open(self.mod_log_file, 'r') as f:
+                records = json.load(f)
+                
+            guild_records = records.get(str(ctx.guild.id), {})
+            case = guild_records.get('cases', {}).get(case_id)
+            
+            if not case:
+                await ctx.send(f"Case ID `{case_id}` not found.")
+                return
+            
+            case['reason'] = new_reason
+            case['edited_by'] = ctx.author.id
+            case['edited_at'] = datetime.utcnow().isoformat()
+            
+            with open(self.mod_log_file, 'w') as f:
+                json.dump(records, f, indent=2)
+            
+            user = ctx.guild.get_member(case['user_id']) or await ctx.guild.fetch_member(case['user_id'])
+            mod = ctx.guild.get_member(case['mod_id'])
+            
+            embed = discord.Embed(
+                title=f"Case updated",
+                description=f"**Case:** {case_id}\n**Action:** {case['action']}\n**Target:** {user.mention}\n**New Reason:** {new_reason}",
+                color=discord.Color.blue(),
+                timestamp=datetime.utcnow()
+            )
+            embed.add_field(name="Original Moderator", value=mod.mention if mod else "Unknown")
+            embed.add_field(name="Edited By", value=ctx.author.mention)
+            
+            await ctx.send("Done 👍")
+            
+            mod_audit_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_mod_audit")
+            if mod_audit_channel_id:
+                channel = ctx.guild.get_channel(int(mod_audit_channel_id))
+                if channel:
+                    await channel.send(embed=embed)
+                    
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Kick Command
@@ -75,7 +200,7 @@ class Moderation(commands.Cog):
                     return
 
                 await member.kick(reason=reason)
-                await self.log_moderation_action(ctx, "Kick", member, reason)
+                await self.logger.log_action(ctx, "Kick", member, reason)
                 await confirm_message.edit(content=f"{member.mention} has been kicked.", view=None)
                 await interaction.response.defer()
 
@@ -121,7 +246,7 @@ class Moderation(commands.Cog):
                     return
 
                 await member.ban(reason=reason)
-                await self.log_moderation_action(ctx, "Ban", member, reason)
+                await self.logger.log_action(ctx, "Ban", member, reason)
                 
                 with open('data/strings.json', 'r') as f:
                     strings = json.load(f)
@@ -178,7 +303,7 @@ class Moderation(commands.Cog):
                 return
 
             await ctx.guild.unban(user)
-            await self.log_moderation_action(ctx, "Unban", user, "No reason provided")
+            await self.logger.log_action(ctx, "Unban", user, "No reason provided")
             await ctx.send(f"{user.mention} has been unbanned.")
             
         except discord.Forbidden:
@@ -215,7 +340,7 @@ class Moderation(commands.Cog):
                 return
 
             await member.timeout(discord.utils.utcnow() + timedelta(seconds=duration), reason=reason)
-            await self.log_moderation_action(ctx, "Timeout", member, f"{time} - {reason if reason else 'No reason provided'}")
+            await self.logger.log_action(ctx, "Timeout", member, f"{time} - {reason if reason else 'No reason provided'}")
             await ctx.send(f"{member.mention} has been timed out for {time}")
 
         except discord.Forbidden:
@@ -250,7 +375,7 @@ class Moderation(commands.Cog):
             else:
                 await member.timeout(None, reason=reason)
 
-            await self.log_moderation_action(ctx, "Unmute", member, reason or "No reason provided")
+            await self.logger.log_action(ctx, "Unmute", member, reason or "No reason provided")
             await ctx.send(f"{member.mention} has been unmuted.")
 
         except discord.Forbidden:
@@ -352,4 +477,4 @@ class Moderation(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
 async def setup(bot):
-    await bot.add_cog(Moderation(bot)) 
+    await bot.add_cog(Moderation(bot))
