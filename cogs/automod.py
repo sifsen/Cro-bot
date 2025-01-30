@@ -2,7 +2,7 @@ import re
 import discord
 from discord.ext import commands
 from utils.helpers import PermissionHandler
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 class AutoMod(commands.Cog):
     def __init__(self, bot):
@@ -37,14 +37,12 @@ class AutoMod(commands.Cog):
         if not config['enabled']:
             return
 
-        # Check exclusions
         if message.channel.id in config['excluded_channels']:
             return
 
         if any(role.id in config['excluded_roles'] for role in message.author.roles):
             return
 
-        # Check patterns
         for pattern_name, pattern_data in config['patterns'].items():
             pattern = pattern_data['regex']
             try:
@@ -144,7 +142,6 @@ class AutoMod(commands.Cog):
                 duration_str = duration_str.strip().lower()
                 pattern = pattern.strip()
 
-                # Parse time units
                 if duration_str.endswith('w'):
                     duration = int(duration_str[:-1]) * 7 * 24 * 60 * 60
                 elif duration_str.endswith('d'):
