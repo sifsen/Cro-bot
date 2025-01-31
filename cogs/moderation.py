@@ -92,10 +92,10 @@ class Moderation(commands.Cog):
             with open(self.mod_log_file, 'r') as f:
                 records = json.load(f)
 
-            guild_records = records.get(str(ctx.guild.id), {}).get('users', {})
-            user_data = guild_records.get(str(user.id))
+            guild_records = records.get(str(ctx.guild.id), {})
+            user_data = guild_records.get('users', {}).get(str(user.id))
 
-            if not user_data or not user_data['cases']:
+            if not user_data or not user_data.get('case_ids', []):
                 await ctx.send(f"No moderation records found for {user.mention}")
                 return
 
@@ -105,31 +105,41 @@ class Moderation(commands.Cog):
                 timestamp=datetime.utcnow()
             )
             
-            embed.description = f"**{user.name}**\nMention: {user.mention}\n```javascript\nID: {user.id}```\n**Total Records:** {len(user_data['cases'])}"
+            embed.description = f"**{user.name}**\nMention: {user.mention}\n```javascript\nID: {user.id}```\n**Total Records:** {len(user_data['case_ids'])}"
             embed.set_thumbnail(url=user.display_avatar.url)
 
-            case_records = records[str(ctx.guild.id)]['cases']
-            
-            cases_to_show = user_data['cases'][-10:]
+            cases = guild_records.get('cases', {})
+            cases_to_show = user_data['case_ids'][-10:]
             cases_to_show.reverse()
             
             for case_id in cases_to_show:
-                record = case_records[case_id]
+                if case_id not in cases:
+                    continue
+                    
+                record = cases[case_id]
                 action_time = datetime.fromisoformat(record['timestamp'])
                 moderator = ctx.guild.get_member(record['mod_id'])
                 mod_name = moderator.name if moderator else "Unknown Moderator"
 
                 embed.add_field(
                     name=f"**{record['action']}**",
-                    value=f"**Case ID:** `{case_id}`\n**Moderator:** {moderator.mention if moderator else mod_name}\nWhen: {discord.utils.format_dt(action_time)}\n> **Reason:**\n> {record['reason'] or 'No reason provided'}" + (f"\n> **Duration:** {record['duration']}" if 'duration' in record else ""),
+                    value=(
+                        f"**Case ID:** `{case_id}`\n"
+                        f"**Moderator:** {moderator.mention if moderator else mod_name}\n"
+                        f"When: {discord.utils.format_dt(action_time)}\n"
+                        f"> **Reason:**\n> {record['reason'] or 'No reason provided'}"
+                        + (f"\n> **Duration:** {record['duration']}" if 'duration' in record else "")
+                    ),
                     inline=False
                 )
 
-            embed.set_footer(text=f"Most recent {min(len(user_data['cases']), 10)} of {len(user_data['cases'])} records")
+            embed.set_footer(text=f"Most recent {min(len(user_data['case_ids']), 10)} of {len(user_data['case_ids'])} records")
             await ctx.send(embed=embed)
 
-        except discord.NotFound:
-            await ctx.send("Could not find that user.")
+        except FileNotFoundError:
+            await ctx.send("No moderation records exist yet.")
+        except json.JSONDecodeError:
+            await ctx.send("Error reading moderation records.")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -395,7 +405,7 @@ class Moderation(commands.Cog):
         for role in roles:
             role_name = role.name.lower()
 
-            if role_name in search_term or search_term in role_name:
+            if role_name in search_term or search_term in search_term:
                 similarity = max(
                     len(role_name) / len(search_term),
                     len(search_term) / len(role_name)
@@ -419,6 +429,9 @@ class Moderation(commands.Cog):
 
         return best_match
 
+    #################################
+    ## Role Command
+    ################################
     @commands.command()
     @PermissionHandler.has_permissions(manage_roles=True)
     async def role(self, ctx, member: discord.Member, *, role_input: str):
@@ -473,6 +486,33 @@ class Moderation(commands.Cog):
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to delete messages.")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Add Note Command
+    #################################
+    @commands.command()
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def addnote(self, ctx, user: Union[discord.Member, discord.User, str], *, note: str):
+        """Add a note to a user's record"""
+        try:
+            if isinstance(user, str):
+                if user.isdigit():
+                    user = await self.bot.fetch_user(int(user))
+                else:
+                    mention_match = re.match(r'<@!?(\d+)>', user)
+                    if mention_match:
+                        user = await self.bot.fetch_user(int(mention_match.group(1)))
+                    else:
+                        await ctx.send("Please provide a valid user ID or mention.")
+                        return
+                    
+            await self.logger.log_action(ctx, "Note", user, note)
+            await ctx.send(f"Added note to {user.mention}'s record.")
+
+        except discord.NotFound:
+            await ctx.send("Could not find that user.")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
