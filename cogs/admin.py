@@ -226,5 +226,60 @@ class Admin(commands.Cog):
                 error = error[:1990] + "..."
             await ctx.author.send(f"```py\n{error}\n```")
 
+    #################################
+    ## Description Command
+    #################################
+    @commands.command(aliases=['desc'])
+    @PermissionHandler.has_permissions(manage_channels=True)
+    async def description(self, ctx, *, description: str = None):
+        """Change a channel's description/topic"""
+        try:
+            channel = ctx.channel
+            
+            if not description:
+                current_topic = channel.topic or "No topic set"
+                await ctx.send(f"Current topic for {channel.mention}:\n> {current_topic}")
+                return
+            
+            await channel.edit(topic=description)
+            await ctx.send(f"Updated topic for {channel.mention}")
+            
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to edit this channel.")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Channel Name Command
+    #################################
+    @commands.command(aliases=['name'])
+    @PermissionHandler.has_permissions(manage_channels=True)
+    async def channelname(self, ctx, *, new_name: str = None):
+        """Change a channel's name"""
+        try:
+            channel = ctx.channel
+            
+            if not new_name:
+                await ctx.send(f"Current name: `{channel.name}`")
+                return
+            
+            if new_name.startswith('<#') and '>' in new_name:
+                parts = new_name.split('>', 1)
+                try:
+                    channel_id = int(parts[0][2:])
+                    channel = ctx.guild.get_channel(channel_id)
+                    new_name = parts[1].strip()
+                except (ValueError, IndexError):
+                    pass
+            
+            old_name = channel.name
+            await channel.edit(name=new_name)
+            await ctx.send(f"Changed channel name from `{old_name}` to `{new_name}`")
+            
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to edit this channel.")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
 async def setup(bot):
     await bot.add_cog(Admin(bot))
