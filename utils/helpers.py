@@ -42,8 +42,7 @@ class PermissionHandler:
                         missing_perms.append(perm)
 
                 if missing_perms:
-                    formatted_perms = ", ".join(perm.replace("_", " ").title() for perm in missing_perms)
-                    await ctx.send(f"You're missing the following permissions: {formatted_perms}")
+                    await ctx.send("Nuh uh.")
                     return
 
                 return await func(self, ctx, *args, **kwargs)
@@ -68,10 +67,9 @@ class PermissionHandler:
                 user_roles = [role.name for role in ctx.author.roles]
                 
                 if not any(role in user_roles for role in role_names):
-                    formatted_roles = ", ".join(role_names)
-                    await ctx.send(f"You need one of these roles to use this command: {formatted_roles}")
+                    await ctx.send("Nuh uh.")
                     return
 
                 return await func(self, ctx, *args, **kwargs)
             return wrapper
-        return decorator 
+        return decorator
