@@ -39,10 +39,15 @@ class PermissionHandler:
                 missing_perms = []
                 for perm, required in permissions.items():
                     if required and not getattr(ctx.author.guild_permissions, perm, False):
-                        missing_perms.append(perm)
+                        formatted_perm = ' '.join(word.capitalize() for word in perm.split('_'))
+                        missing_perms.append(formatted_perm)
 
                 if missing_perms:
-                    await ctx.send("Nuh uh.")
+                    if len(missing_perms) == 1:
+                        await ctx.send(f"Nuh uh...")
+                    else:
+                        perms_list = '`, `'.join(missing_perms)
+                        await ctx.send(f"You need the following permissions to use this command:\n`{perms_list}`")
                     return
 
                 return await func(self, ctx, *args, **kwargs)
