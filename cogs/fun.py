@@ -155,7 +155,7 @@ class Fun(commands.Cog):
         
         await message.channel.send(f"{thanked_user.display_name} gained a cookie!")
 
-    @commands.command()
+    @commands.command(aliases=['cookie'])
     async def cookies(self, ctx, member: discord.Member = None):
         """Check how many cookies someone has"""
         member = member or ctx.author
@@ -180,7 +180,7 @@ class Fun(commands.Cog):
         
         await ctx.send(f"{member.mention} has **{cookie_count}** {cookie_text}! 🍪\nThey have eaten **{eaten_count}** {eaten_text} in total.")
 
-    @commands.command()
+    @commands.command(aliases=['nom'])
     async def eat(self, ctx, amount: int = 1):
         """Eat some of your cookies"""
         try:
