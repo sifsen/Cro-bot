@@ -405,7 +405,7 @@ class Moderation(commands.Cog):
         for role in roles:
             role_name = role.name.lower()
 
-            if role_name in search_term or search_term in search_term:
+            if role_name in search_term or search_term in role_name:
                 similarity = max(
                     len(role_name) / len(search_term),
                     len(search_term) / len(role_name)
@@ -513,6 +513,54 @@ class Moderation(commands.Cog):
 
         except discord.NotFound:
             await ctx.send("Could not find that user.")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Lock Command
+    #################################
+    @commands.command()
+    @PermissionHandler.has_permissions(manage_channels=True)
+    async def lock(self, ctx, channel: discord.TextChannel = None):
+        """Lock a channel"""
+        try:
+            channel = channel or ctx.channel
+            overwrites = channel.overwrites_for(ctx.guild.default_role)
+            
+            if not overwrites.send_messages is False:
+                overwrites.send_messages = False
+                await channel.set_permissions(ctx.guild.default_role, overwrite=overwrites)
+
+                await ctx.send(f"{channel.mention} has been locked.")
+            else:
+                await ctx.send(f"{channel.mention} is already locked.")
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to manage channel permissions!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Unlock Command
+    #################################
+    @commands.command()
+    @PermissionHandler.has_permissions(manage_channels=True)
+    async def unlock(self, ctx, channel: discord.TextChannel = None):
+        """Unlock a channel"""
+        try:
+            channel = channel or ctx.channel
+            overwrites = channel.overwrites_for(ctx.guild.default_role)
+            
+            if overwrites.send_messages is False:
+                overwrites.send_messages = None
+                await channel.set_permissions(ctx.guild.default_role, overwrite=overwrites)
+                
+                await ctx.send(f"{channel.mention} has been unlocked.")
+            else:
+                await ctx.send(f"{channel.mention} is not locked.")
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to manage channel permissions!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
