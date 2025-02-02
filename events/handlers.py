@@ -38,17 +38,29 @@ class EventHandlers(commands.Cog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
-            await ctx.send("That command doesn't exist.")
-        elif isinstance(error, commands.MissingPermissions):
-            await ctx.send("You can't do that.")
-        elif isinstance(error, commands.MemberNotFound):
-            await ctx.send("I couldn't find that member.")
-        elif isinstance(error, commands.BotMissingPermissions):
-            await ctx.send("I can't do that.")
-        elif isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("Please provide an arg.")
-        else:
-            await ctx.send(f"An error occurred: {str(error)}")
+            return # niks doen als de command niet bestaat
+        
+        if isinstance(error, commands.MissingPermissions):
+            perms = ', '.join(error.missing_permissions)
+            await ctx.send(f"You can't do that.")
+            return
+        
+        if isinstance(error, commands.BotMissingPermissions):
+            perms = ', '.join(error.missing_permissions)
+            await ctx.send(f"I can't do that.\nI need the `{perms}` permission.")
+            return
+        
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f"Please provide the `{error.param.name}` argument.")
+            return
+        
+        if isinstance(error, commands.BadArgument):
+            await ctx.send(f"Wrong argument lol\n{str(error)}")
+            return
+
+        # log errors teehee
+        print(f"Error in {ctx.command}: {str(error)}")
+        await ctx.send("An unexpected error occurred. Tag my dev if it persists.")
 
     #################################
     ## Starboard
