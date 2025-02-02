@@ -163,6 +163,64 @@ class Fun(commands.Cog):
         ]
         await ctx.send(f"{member.mention} {random.choice(pokes)}")
 
+    @commands.command()
+    async def slap(self, ctx, member: discord.Member = None):
+        """Slap someone with a random object"""
+        if member is None:
+            await ctx.send("You need to specify someone to slap!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You slapped yourself. Why would you do that?")
+            return
+            
+        if member.bot:
+            await ctx.send("You can't slap a bot! Your hand would break!")
+            return
+            
+        items = [
+            "a wet noodle",
+            "a large trout",
+            "a physics textbook",
+            "a rubber chicken",
+            "a slice of pizza",
+            "the ban hammer",
+            "a keyboard",
+            "a cactus",
+            "the communist manifesto",
+            "a bug report"
+        ]
+        await ctx.send(f"{ctx.author.name} slaps {member.mention} with {random.choice(items)}")
+
+    @commands.command()
+    async def throw(self, ctx, member: discord.Member = None):
+        """Throw something at someone"""
+        if member is None:
+            await ctx.send("You need to specify someone to throw at!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You threw something at yourself... why?")
+            return
+            
+        if member.bot:
+            await ctx.send("You can't throw things at bots! They'll throw them back harder!")
+            return
+            
+        items = [
+            "a potato 🥔",
+            "an error message",
+            "a stack trace",
+            "some spaghetti code",
+            "a rubber duck 🦆",
+            "a merge conflict",
+            "a bug fix",
+            "the documentation",
+            "a feature request",
+            "undefined behavior"
+        ]
+        await ctx.send(f"{ctx.author.name} throws {random.choice(items)} at {member.mention}")
+
     ###########################
     ## Food & Drink Commands
     ###########################
