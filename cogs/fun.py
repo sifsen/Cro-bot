@@ -1047,7 +1047,6 @@ class Fun(commands.Cog):
     async def emote(self, ctx, emote: str):
         """Get info about an emote"""
         try:
-            # Try to convert the emote string to a custom emoji
             emoji = await commands.EmojiConverter().convert(ctx, emote)
             
             embed = discord.Embed(title="Emoji Info", color=0x2B2D31)
