@@ -32,36 +32,6 @@ class Admin(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
-    ## Server Info Command
-    #################################
-    @commands.command(aliases=['server'])
-    @PermissionHandler.has_permissions(manage_nicknames=True)
-    async def serverinfo(self, ctx):
-        """Display information about the server"""
-        guild = ctx.guild
-        embed = discord.Embed(
-            title=f"Server Info - {guild.name}",
-            color=discord.Color.blue(),
-            timestamp=datetime.utcnow()
-        )
-        
-        embed.add_field(name="Owner", value=guild.owner.mention)
-        embed.add_field(name="Created At", value=guild.created_at.strftime("%Y-%m-%d"))
-        embed.add_field(name="Member Count", value=guild.member_count)
-        
-        text_channels = len(guild.text_channels)
-        voice_channels = len(guild.voice_channels)
-        categories = len(guild.categories)
-        embed.add_field(name="Channels", value=f"Text: {text_channels}\nVoice: {voice_channels}\nCategories: {categories}")
-        
-        embed.add_field(name="Roles", value=len(guild.roles))
-        
-        if guild.icon:
-            embed.set_thumbnail(url=guild.icon.url)
-            
-        await ctx.send(embed=embed)
-
-    #################################
     ## Config Command
     #################################
     @commands.command()
@@ -360,5 +330,6 @@ class Admin(commands.Cog):
         embed = discord.Embed(title="Server Tags", color=0x2B2D31)
         embed.description = "\n".join(f"`{name}`" for name in sorted(tags.keys()))
         await ctx.send(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(Admin(bot))
