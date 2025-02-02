@@ -24,14 +24,14 @@ class Bot(commands.Bot):
     ## Setup Hook
     #################################   
     async def setup_hook(self):
-        print("Loading cogs...")
+        print("cogs laden...")
         for filename in os.listdir("./cogs"):
-            print(f"Found file: {filename}")
+            print(f"gevonden: {filename}")
             if filename.endswith(".py") and not filename.startswith("__"):
-                print(f"Loading cog: cogs.{filename[:-3]}")
+                print(f"cog geladen: cogs.{filename[:-3]}")
                 await self.load_extension(f"cogs.{filename[:-3]}")
         
-        print("Loading events...")
+        print("events laden...")
         await self.load_extension("events.handlers")
         await self.load_extension("events.messages")
         await self.load_extension("events.logging")
@@ -40,7 +40,7 @@ class Bot(commands.Bot):
     ## Ready and Status
     #################################   
     async def on_ready(self):
-        print(f"{self.user} is ready and online!")
+        print(f"{self.user} is online!")
         
         with open('data/strings.json', 'r') as f:
             strings = json.load(f)
