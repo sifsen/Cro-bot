@@ -192,7 +192,7 @@ class Moderation(commands.Cog):
     #################################
     ## Kick Command
     #################################      
-    @commands.command(aliases=['slap'])
+    @commands.command(aliases=['punch'])
     @PermissionHandler.has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
         """Kick a member from the server"""
