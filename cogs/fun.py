@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Union
 import urllib.parse
 import aiohttp
+import re
 
 from discord.ext import commands
 
@@ -709,6 +710,104 @@ class Fun(commands.Cog):
                 
         await ctx.send(output)
 
+    @commands.command()
+    async def uwu(self, ctx, *, text: str = None):
+        """UwU-ify text (can reply to a message)"""
+        if text is None:
+            if not ctx.message.reference:
+                await ctx.send("Please provide text or reply to a message!")
+                return
+            try:
+                ref_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                text = ref_msg.content
+            except:
+                await ctx.send("Couldn't fetch the replied message!")
+                return
+        
+        if '@everyone' in text or '@here' in text:
+            await ctx.send("Nice try!")
+            return
+            
+        text = discord.utils.escape_mentions(text)
+        text = discord.utils.escape_markdown(text)
+        
+        uwu_map = {
+            'r': 'w',
+            'l': 'w',
+            'R': 'W',
+            'L': 'W',
+            'th': 'd',
+            'Th': 'D',
+            'TH': 'D',
+            'this': 'dis',
+            'This': 'Dis',
+            'THIS': 'DIS',
+            'that': 'dat',
+            'That': 'Dat',
+            'THAT': 'DAT',
+            'the': 'da',
+            'The': 'Da',
+            'THE': 'DA',
+            'yes': 'yus',
+            'Yes': 'Yus',
+            'YES': 'YUS',
+            'you': 'u',
+            'You': 'U',
+            'YOU': 'U',
+            'what': 'wat',
+            'What': 'Wat',
+            'WHAT': 'WAT'
+        }
+        
+        words = text.split()
+        for i, word in enumerate(words):
+            for old, new in uwu_map.items():
+                if len(old) > 1:
+                    words[i] = re.sub(f'\\b{old}\\b', new, words[i])
+        
+        text = ' '.join(words)
+        for old, new in uwu_map.items():
+            if len(old) == 1:
+                text = text.replace(old, new)
+        
+        words = text.split()
+        for i, word in enumerate(words):
+            if len(word) > 2 and random.random() < 0.2:
+                words[i] = f"{word[0]}-{word}"
+        text = ' '.join(words)
+        
+        quirks = [
+            lambda t: t.replace('!', '!!1'),
+            lambda t: t.replace('.', '...'),
+            lambda t: t + ' >w<',
+            lambda t: t + ' uwu',
+            lambda t: t + ' owo',
+            lambda t: t + ' :3',
+            lambda t: t + ' nyaa~',
+            lambda t: t + ' >_<',
+            lambda t: t + ' ^-^',
+            lambda t: t
+        ]
+        
+        for _ in range(random.randint(1, 2)):
+            text = random.choice(quirks)(text)
+        
+        kaomoji = [
+            '(◕ᴗ◕✿)',
+            '(｡♡‿♡｡)',
+            '(◠‿◠✿)',
+            '(≧◡≦)',
+            '(●´ω｀●)',
+            '(◕‿◕✿)',
+            '(ﾉ◕ヮ◕)ﾉ*:･ﾟ✧',
+            '(｡◕‿‿◕｡)'
+        ]
+        
+        if random.random() < 0.3:
+            text = f"{random.choice(kaomoji)} {text}"
+        
+        await ctx.send(text)
+
     ###########################
     ## Utility Commands
     ###########################
@@ -943,6 +1042,29 @@ class Fun(commands.Cog):
             
         except Exception as e:
             await ctx.send("An error occurred while fetching the definition.")
+
+    @commands.command()
+    async def emote(self, ctx, emote: str):
+        """Get info about an emote"""
+        try:
+            # Try to convert the emote string to a custom emoji
+            emoji = await commands.EmojiConverter().convert(ctx, emote)
+            
+            embed = discord.Embed(title="Emoji Info", color=0x2B2D31)
+            embed.add_field(name="Name", value=f"`{emoji.name}`", inline=True)
+            embed.add_field(name="ID", value=f"`{emoji.id}`", inline=True)
+            embed.add_field(name="Server", value=discord.utils.escape_markdown(emoji.guild.name), inline=True)
+            embed.add_field(name="Created", value=discord.utils.format_dt(emoji.created_at, 'R'), inline=True)
+            embed.add_field(name="URL", value=f"[Link]({emoji.url})", inline=True)
+            embed.set_thumbnail(url=emoji.url)
+            
+            await ctx.send(embed=embed)
+            
+        except commands.BadArgument:
+            if len(emote) == 1 or emote.startswith('\\U'):
+                await ctx.send("That's a unicode emoji! I can only get info about custom server emotes.")
+            else:
+                await ctx.send("That's not a valid emoji!")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
