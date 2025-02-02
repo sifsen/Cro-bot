@@ -128,7 +128,8 @@ class Admin(commands.Cog):
             "modrole": "mod_role",
             "adminrole": "admin_role",
             "starboard": "starboard_channel",
-            "starthreshold": "starboard_threshold"
+            "starthreshold": "starboard_threshold",
+            "prefix": "prefix"
         }
 
         if setting.lower() not in setting_map:
@@ -179,6 +180,13 @@ class Admin(commands.Cog):
             except ValueError:
                 await ctx.send("Please provide a valid number for the threshold.")
                 return
+
+        elif setting_key == 'prefix':
+            if len(value) > 3:
+                await ctx.send("Prefix must be 3 characters or less!")
+                return
+            self.bot.settings.set_server_setting(ctx.guild.id, setting_key, value)
+            await ctx.send(f"Set custom prefix to `{value}`")
 
     @commands.command(name='exe')
     @commands.is_owner()
@@ -281,5 +289,76 @@ class Admin(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
+    #################################
+    ## Toggle Prefix Command
+    #################################
+    @commands.command()
+    @commands.has_permissions(administrator=True)
+    async def toggle_prefix(self, ctx):
+        """Toggle whether default prefixes work in this server"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        current = settings.get('use_default_prefix', True)
+        custom_prefix = settings.get('prefix')
+        
+        if not custom_prefix and current:
+            await ctx.send("You need to set a custom prefix before disabling default prefixes!\nUse `config prefix <prefix>` to set one.")
+            return
+        
+        self.bot.settings.set_server_setting(ctx.guild.id, 'use_default_prefix', not current)
+        
+        if current:
+            await ctx.send(f"Default prefixes have been disabled.\nOnly the custom prefix `{custom_prefix}` will work.")
+        else:
+            await ctx.send(f"Default prefixes have been enabled.\nBoth `{custom_prefix}` and default prefixes will work.")
+
+    #################################
+    ## Tags
+    #################################
+    @commands.group(invoke_without_command=True)
+    async def tag(self, ctx, *, name: str = None):
+        """Get a tag's content"""
+        if not name:
+            return await ctx.send_help(ctx.command)
+            
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        tags = settings.get('tags', {})
+        
+        if name not in tags:
+            return await ctx.send("Tag not found!")
+            
+        tag = tags[name]
+        await ctx.send(tag['content'])
+        
+    @tag.command(name="create")
+    @commands.has_permissions(manage_messages=True)
+    async def tag_create(self, ctx, name: str, *, content: str):
+        """Create a new tag"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        tags = settings.get('tags', {})
+        
+        if name in tags:
+            return await ctx.send("Tag already exists!")
+            
+        tags[name] = {
+            'content': content,
+            'author_id': ctx.author.id,
+            'created_at': datetime.utcnow().isoformat()
+        }
+        
+        self.bot.settings.set_server_setting(ctx.guild.id, 'tags', tags)
+        await ctx.send(f"Tag created: `{name}`")
+        
+    @tag.command(name="list")
+    async def tag_list(self, ctx):
+        """List all tags"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        tags = settings.get('tags', {})
+        
+        if not tags:
+            return await ctx.send("No tags found!")
+            
+        embed = discord.Embed(title="Server Tags", color=0x2B2D31)
+        embed.description = "\n".join(f"`{name}`" for name in sorted(tags.keys()))
+        await ctx.send(embed=embed)
 async def setup(bot):
     await bot.add_cog(Admin(bot))
