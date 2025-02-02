@@ -1,6 +1,10 @@
 import random
 import json
 import discord
+from datetime import datetime, timedelta
+from typing import Union
+import urllib.parse
+import aiohttp
 
 from discord.ext import commands
 
@@ -8,9 +12,9 @@ class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    #################################
-    ## Roll Command
-    #################################   
+    ###########################
+    ## Game Commands
+    ###########################
     @commands.command()
     async def roll(self, ctx, dice: str):
         """Roll a dice in NdN format."""
@@ -21,93 +25,233 @@ class Fun(commands.Cog):
         except Exception:
             await ctx.send("Format has to be in NdN!")
     
-    #################################
-    ## Coinflip Command
-    #################################
+    @commands.command()
+    async def rps(self, ctx, choice: str):
+        """Play Rock Paper Scissors"""
+        choice = choice.lower()
+        if choice not in ['rock', 'paper', 'scissors']:
+            await ctx.send("Please choose rock, paper, or scissors!")
+            return
+        if not choice:
+            await ctx.send("Please choose rock, paper, or scissors!")
+            return
+        
+        bot_choice = random.choice(['rock', 'paper', 'scissors'])
+        
+        wins = {
+            'rock': 'scissors',
+            'paper': 'rock', 
+            'scissors': 'paper'
+        }
+        
+        if choice == bot_choice:
+            await ctx.send(f"I chose **{bot_choice}**! It's a tie!")
+        elif wins[choice] == bot_choice:
+            await ctx.send(f"I chose **{bot_choice}**! You win!")
+        else:
+            await ctx.send(f"I chose **{bot_choice}**! You lose!")
+
     @commands.command(aliases=['cf', 'flip'])
     async def coinflip(self, ctx):
         """Flip a coin"""
         result = random.choice(['Heads', 'Tails'])
         await ctx.send(f"You got **{result}**!")
 
-    #################################
-    ## Echo Command
-    #################################
+    ###########################
+    ## Social Commands
+    ###########################
     @commands.command()
-    async def echo(self, ctx, *, message: str):
-        """Echo a message"""
-        await ctx.message.delete()
-        await ctx.send(message)
-
-    #################################
-    ## Bean Command
-    #################################
-    @commands.command(aliases=['punish', 'troll', 'bange', 'jail'])
-    @commands.has_permissions(ban_members=True)
-    async def bean(self, ctx, member: commands.MemberConverter = None):
-        """Bean a user (totally real ban command)"""
-        if not member:
-            return
-
-        if member.id == ctx.author.id:
-            await ctx.send("Nice try.")
-            return
-
-        with open('data/strings.json', 'r') as f:
-            strings = json.load(f)
-            action = random.choice(strings['user_was_x'])
-
-        await ctx.send(f"{member.display_name} was {action}")
-
-    #################################
-    ## Choose Command
-    #################################
-    @commands.command()
-    async def choose(self, ctx, *choices: str):
-        """Choose between multiple choices"""
-        await ctx.send(random.choice(choices))
-
-    #################################
-    ## Snipe Command
-    #################################
-    @commands.command()
-    async def snipe(self, ctx):
-        """Shows the last deleted message in the channel"""
-        handlers = self.bot.get_cog('EventHandlers')
-        if not handlers:
-            return
-            
-        guild_deletes = handlers.deleted_messages.get(ctx.guild.id, {})
-        deleted_msg = guild_deletes.get(ctx.channel.id)
+    async def hug(self, ctx, member: discord.Member = None, intensity: int = 1):
+        """Give someone a hug!
         
-        if not deleted_msg:
-            await ctx.send("There's nothing to snipe!")
+        Intensity levels 1-10"""
+        if member is None:
+            await ctx.send("You need to specify someone to hug!")
+            return
+        
+        if intensity <= 0:
+            msg = f"(っ˘̩╭╮˘̩)っ {member.mention}"
+        elif intensity <= 3:
+            msg = f"(っ´▽｀)っ {member.mention}"
+        elif intensity <= 6:
+            msg = f"╰(*´︶`*)╯ {member.mention}"
+        elif intensity <= 9:
+            msg = f"(つ≧▽≦)つ {member.mention}"
+        else:
+            msg = f"(づ￣ ³￣)づ {member.mention} ⊂(´・ω・｀⊂)"
+        
+        await ctx.send(msg)
+
+    @commands.command()
+    async def pat(self, ctx, member: discord.Member = None):
+        """Pat someone on the head"""
+        if member is None:
+            await ctx.send("You need to specify someone to pat!")
             return
             
-        embed = discord.Embed(
-            description=deleted_msg['content'] or "*No text content*",
-            color=0x2B2D31,
-            timestamp=deleted_msg['timestamp']
+        if member == ctx.author:
+            await ctx.send("You pat yourself... weird flex but ok")
+            return
+            
+        pats = ['(´･ω･`)ノ', '(ｏ・_・)ノ"', '(づ｡◕‿‿◕｡)づ', '(っ´ω`)ﾉ']
+        await ctx.send(f"{random.choice(pats)} *pats {member.mention}*")
+
+    @commands.command()
+    async def bonk(self, ctx, member: discord.Member = None):
+        """Bonk someone"""
+        if member is None:
+            await ctx.send("You need to specify someone to bonk!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You bonked yourself... why would you do that?")
+            return
+            
+        bonks = [
+            "bonk! Go to horny jail",
+            "*bonks with newspaper*",
+            "**BONK**",
+            "*tactical bonk incoming*",
+            "B O N K"
+        ]
+        await ctx.send(f"{member.mention} {random.choice(bonks)}")
+
+    @commands.command()
+    async def boop(self, ctx, member: discord.Member = None):
+        """Boop someone's nose"""
+        if member is None:
+            await ctx.send("You need to specify someone to boop!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You booped your own nose... weird flex but ok")
+            return
+            
+        if member.bot:
+            await ctx.send("You tried to boop a bot... *boop processing error*")
+            return
+            
+        boops = [
+            "*boop!*", 
+            "**BOOP!**", 
+            "*sneaky boop*", 
+            "*tactical boop incoming!*",
+            "*boops aggressively*",
+            "*gentle boop*"
+        ]
+        
+        await ctx.send(f"{member.mention} {random.choice(boops)}")
+
+    @commands.command()
+    async def poke(self, ctx, member: discord.Member = None):
+        """Poke someone"""
+        if member is None:
+            await ctx.send("You need to specify someone to poke!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You poked yourself... why?")
+            return
+            
+        pokes = [
+            "*poke*",
+            "**POKE**",
+            "*aggressive poke*",
+            "*gentle poke*",
+            "*sneaky poke*",
+            "*pokes repeatedly*"
+        ]
+        await ctx.send(f"{member.mention} {random.choice(pokes)}")
+
+    ###########################
+    ## Food & Drink Commands
+    ###########################
+    @commands.command()
+    async def sandwich(self, ctx, member: discord.Member = None):
+        """Make a sandwich for someone"""
+        member = member or ctx.author
+        
+        breads = ["🍞", "🥖", "🥯", "🥪"]
+        fillings = ["🧀", "🥓", "🥚", "🥬", "🍅", "🥕", "🥩", "🥑"]
+        
+        sandwich = (
+            f"{random.choice(breads)} "
+            f"{' '.join(random.sample(fillings, k=random.randint(2, 4)))} "
+            f"{random.choice(breads)}"
         )
         
-        embed.set_author(
-            name=deleted_msg['author'].name,
-            icon_url=deleted_msg['author'].display_avatar.url
-        )
-        
-        if deleted_msg['reference']:
-            embed.description += f"\n\nReplying to [this message]({ctx.channel.jump_url}/{deleted_msg['reference']})"
-            
-        if deleted_msg['attachments']:
-            embed.set_image(url=deleted_msg['attachments'][0])
-            
-        embed.set_footer(text=f"Sniped by {ctx.author.name}")
-        
-        await ctx.send(embed=embed)
+        if member == ctx.author:
+            await ctx.send(f"You made yourself a sandwich: {sandwich}")
+        else:
+            await ctx.send(f"You made {member.mention} a sandwich: {sandwich}")
 
-    #################################
-    ## Cookies
-    #################################
+    @commands.command()
+    async def soup(self, ctx, member: discord.Member = None):
+        """Give someone some soup"""
+        member = member or ctx.author
+        
+        soups = ["🥣", "🍜", "🍲"]
+        temps = ["hot", "warm", "lukewarm", "cold"]
+        types = [
+            "tomato", "chicken noodle", "mushroom", 
+            "mystery", "void", "cosmic", "potato",
+            "debugger's", "binary", "quantum"
+        ]
+        
+        soup = f"{random.choice(temps)} {random.choice(types)} soup {random.choice(soups)}"
+        
+        if member == ctx.author:
+            await ctx.send(f"You made yourself some {soup}")
+        else:
+            await ctx.send(f"You gave {member.mention} some {soup}")
+
+    @commands.command()
+    async def sip(self, ctx):
+        """Take a sip"""
+        sips = [
+            "*sips tea*",
+            "*sips coffee aggressively*",
+            "*slurps loudly*",
+            "*sips in judgement*",
+            "*takes a long sip*",
+            "*sips awkwardly*"
+        ]
+        await ctx.send(f"{ctx.author.name} {random.choice(sips)}")
+
+    @commands.command()
+    async def nom(self, ctx, member: discord.Member = None, *, thing: str = None):
+        """Nom something or someone"""
+        noms = [
+            "*nom nom nom*",
+            "*aggressive nomming*",
+            "*nibble*",
+            "*monch*",
+            "*cronch*",
+            "*happy nomming sounds*"
+        ]
+        
+        if member:
+            if member == ctx.author:
+                await ctx.send("You tried to nom yourself... how does that even work?")
+                return
+                
+            if member.bot:
+                await ctx.send("You can't nom bots! You might chip a tooth!")
+                return
+                
+            await ctx.send(f"{member.mention} *{ctx.author.name} noms you* {random.choice(noms)}")
+        elif thing:
+            if '@everyone' in thing or '@here' in thing:
+                await ctx.send("Nice try!")
+                return
+            thing = discord.utils.escape_mentions(thing)
+            await ctx.send(f"*{ctx.author.name} noms {thing}* {random.choice(noms)}")
+        else:
+            await ctx.send(f"*{ctx.author.name} noms the air*")
+
+    ###########################
+    ## Cookie System Commands
+    ###########################
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.author.bot:
@@ -180,7 +324,7 @@ class Fun(commands.Cog):
         
         await ctx.send(f"{member.mention} has **{cookie_count}** {cookie_text}! 🍪\nThey have eaten **{eaten_count}** {eaten_text} in total.")
 
-    @commands.command(aliases=['nom'])
+    @commands.command(aliases=['chomp'])
     async def eat(self, ctx, amount: int = 1):
         """Eat some of your cookies"""
         try:
@@ -257,6 +401,491 @@ class Fun(commands.Cog):
             await ctx.send(f"You gave a cookie to {member.display_name}")
         else:
             await ctx.send(f"You gave **{amount}** cookies to {member.display_name}!")
+
+    ###########################
+    ## Expression Commands
+    ###########################
+    @commands.command()
+    async def stare(self, ctx, member: discord.Member = None):
+        """Stare at someone"""
+        if member is None:
+            await ctx.send("You need to specify someone to stare at!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You stare at yourself in the mirror...")
+            return
+            
+        stares = [
+            "ಠ_ಠ",
+            "ಠ_ರೃ",
+            "ಠ▃ಠ",
+            "ಠ╮╮ಠ",
+            "(╬ಠ益ಠ)",
+            "(｀_´)ゞ"
+        ]
+        await ctx.send(f"{member.mention} *{ctx.author.name} stares at you* {random.choice(stares)}")
+
+    @commands.command()
+    async def squint(self, ctx, member: discord.Member = None):
+        """Squint suspiciously at someone"""
+        if member is None:
+            await ctx.send("You need to specify someone to squint at!")
+            return
+            
+        if member == ctx.author:
+            await ctx.send("You squint at yourself in confusion...")
+            return
+            
+        squints = [
+            "눈_눈",
+            "-᷅_-᷄",
+            "≖_≖",
+            "( ⚆ _ ⚆ )",
+            "(-_-;)"
+        ]
+        await ctx.send(f"{member.mention} *{ctx.author.name} squints suspiciously* {random.choice(squints)}")
+
+    @commands.command()
+    async def flail(self, ctx):
+        """Flail around"""
+        flails = [
+            "ヽ(°〇°)ﾉ",
+            "༼ノ◕ヮ◕༽ノ",
+            "(ノ°□°)ノ",
+            "┗(｀Дﾟ┗(｀ﾟДﾟ´)┛ﾟД´)┛",
+            "ヽ(。_°)ノ",
+            "ヽ(ﾟДﾟ)ﾉ"
+        ]
+        await ctx.send(f"*{ctx.author.name} flails around* {random.choice(flails)}")
+
+    @commands.command()
+    async def lurk(self, ctx):
+        """Lurk in the shadows"""
+        lurks = [
+            "┬┴┬┴┤(･_├┬┴┬┴",
+            "┬┴┬┴┤ ͜ʖ ͡°) ├┬┴┬┴",
+            "┬┴┬┴┤･ω･)ﾉ├┬┴┬┴",
+            "┬┴┬┴┤(･_├┬┴┬┴",
+            "┬┴┬┴┤(･_├┬┴┬┴",
+            "┬┴┬┴┤ ͡° ͜ʖ ͡°)├┬┴┬┴"
+        ]
+        await ctx.send(f"*{ctx.author.name} lurks menacingly* {random.choice(lurks)}")
+
+    @commands.command()
+    async def wiggle(self, ctx):
+        """Wiggle wiggle wiggle"""
+        wiggles = [
+            "~(˘▾˘~)",
+            "(~˘▾˘)~",
+            "⊂((・▽・))⊃",
+            "└[∵┌]└[ ∵ ]┘[┐∵]┘",
+            "(〜￣△￣)〜",
+            "♪～(´ε｀ )"
+        ]
+        await ctx.send(f"*{ctx.author.name} wiggles* {random.choice(wiggles)}")
+
+    @commands.command()
+    async def panic(self, ctx):
+        """PANIC!!!"""
+        panics = [
+            "(ノ°Д°）ノ︵ ┻━┻",
+            "┻━┻ ︵ヽ(`Д´)ﾉ︵ ┻━┻",
+            "(╯°□°）╯︵ ┻━┻",
+            "┻━┻ミ＼(≧ﾛ≦＼)",
+            "(┛◉Д◉)┛彡┻━┻",
+            "(┛ಸ_ಸ)┛彡┻━┻"
+        ]
+        await ctx.send(f"*{ctx.author.name} panics* {random.choice(panics)}")
+
+    @commands.command()
+    async def unflip(self, ctx):
+        """Restore order to the tables"""
+        unflips = [
+            "┬─┬ノ( º _ ºノ)",
+            "┬─┬ノ(ಠ_ಠノ)",
+            "┬─┬ノ( º _ ºノ)",
+            "┬──┬◡ﾉ(° -°ﾉ)",
+            "┬━┬ ノ( ゜-゜ノ)",
+            "┬──┬ ¯\_(ツ)"
+        ]
+        await ctx.send(f"*{ctx.author.name} restores order* {random.choice(unflips)}")
+
+    @commands.command()
+    async def smug(self, ctx):
+        """Be smug"""
+        smugs = [
+            "（￣～￣）",
+            "(￣⊙￣)",
+            "(-‿◦☀)",
+            "(｀ω´)",
+            "(￣ω￣)",
+            "(｀∀´)Ψ"
+        ]
+        await ctx.send(f"*{ctx.author.name} looks smug* {random.choice(smugs)}")
+
+    @commands.command()
+    async def confused(self, ctx):
+        """Express confusion"""
+        confusions = [
+            "(⊙_⊙)？",
+            "⊙.☉",
+            "(⊙.⊙)",
+            "( ・◇・)？",
+            "(●__●)",
+            "ಠಿ_ಠ"
+        ]
+        await ctx.send(f"*{ctx.author.name} is confused* {random.choice(confusions)}")
+
+    @commands.command()
+    async def yawn(self, ctx):
+        """*yawns contagiously*"""
+        yawns = [
+            "(๑ᵕ⌓ᵕ̤)",
+            "（´≧Д≦）",
+            "(∙ө∙)",
+            "(˶ᵔ ᵕ ᵔ˶)",
+            "( ⚈̥̥̥̥̥́⌢⚈̥̥̥̥̥̀)",
+            "(◞ ‸ ◟)"
+        ]
+        await ctx.send(f"*{ctx.author.name} yawns* {random.choice(yawns)}")
+
+    @commands.command()
+    async def nap(self, ctx):
+        """Take a quick nap"""
+        naps = [
+            "(-, - )…zzzZZZ",
+            "(∪｡∪)｡｡｡zzz",
+            "(-_-) zzz",
+            "(ᴗ˳ᴗ)",
+            "✾(〜 ☌ω☌)〜✾",
+            "(⊃◜⌓◝⊂)"
+        ]
+        await ctx.send(f"*{ctx.author.name} takes a nap* {random.choice(naps)}")
+
+    @commands.command()
+    async def grump(self, ctx):
+        """Be grumpy"""
+        grumps = [
+            "( ╯°□°)╯",
+            "(｀Д´)",
+            "( ͠° ͟ʖ ͡°)",
+            "(⋋▂⋌)",
+            "(≖︿≖ )",
+            "( ง ᵒ̌皿ᵒ̌)ง⁼³₌₃"
+        ]
+        await ctx.send(f"*{ctx.author.name} is grumpy* {random.choice(grumps)}")
+
+    @commands.command()
+    async def sparkle(self, ctx, *, thing: str = None):
+        """Make something sparkle"""
+        if thing:
+            if '@everyone' in thing or '@here' in thing:
+                await ctx.send("Nice try!")
+                return
+            thing = discord.utils.escape_mentions(thing)
+            await ctx.send(f"*{ctx.author.name} sprinkles sparkles on {thing}* ✧･ﾟ: *✧･ﾟ♡*(◕‿◕✿)*♡･ﾟ✧*:･ﾟ✧")
+        else:
+            await ctx.send(f"*{ctx.author.name} sparkles* ✧･ﾟ: *✧･ﾟ♡*(◕‿◕✿)*♡･ﾟ✧*:･ﾟ✧")
+
+    ###########################
+    ## Text Manipulation Commands
+    ###########################
+    @commands.command()
+    async def emojify(self, ctx, *, text: str):
+        """Convert text to regional indicators"""
+        if '@everyone' in text or '@here' in text:
+            await ctx.send("Nice try!")
+            return
+        text = discord.utils.escape_mentions(text)
+        
+        char_map = {
+            ' ': '   ',
+            '!': ':exclamation:',
+            '?': ':question:',
+            '#': ':hash:',
+            '*': ':asterisk:'
+        }
+        
+        output = ''
+        for char in text.lower():
+            if char.isalpha():
+                output += f":regional_indicator_{char}: "
+            elif char in char_map:
+                output += char_map[char] + ' '
+            else:
+                output += char + ' '
+                
+        await ctx.send(output)
+
+    @commands.command()
+    async def reverse(self, ctx, *, text: str):
+        """Reverse any text"""
+        # Sanitize mentions
+        if '@everyone' in text or '@here' in text:
+            await ctx.send("Nice try!")
+            return
+        text = discord.utils.escape_mentions(text)
+        await ctx.send(text[::-1])
+
+    @commands.command()
+    async def mock(self, ctx, *, text: str):
+        """MoCk TeXt LiKe ThIs"""
+        if '@everyone' in text or '@here' in text:
+            await ctx.send("Nice try!")
+            return
+        text = discord.utils.escape_mentions(text)
+        
+        output = ''
+        last_upper = False
+        
+        for char in text:
+            if char.isalpha():
+                if not last_upper:
+                    output += char.upper()
+                    last_upper = True
+                else:
+                    output += char.lower()
+                    last_upper = False
+            else:
+                output += char
+                
+        await ctx.send(output)
+
+    ###########################
+    ## Utility Commands
+    ###########################
+    @commands.command()
+    async def echo(self, ctx, *, message: str):
+        """Echo a message"""
+        if '@everyone' in message or '@here' in message:
+            await ctx.send("Nice try.")
+            return
+            
+        message = discord.utils.escape_mentions(message)
+        message = discord.utils.escape_markdown(message)
+        
+        await ctx.message.delete()
+        await ctx.send(message)
+
+    @commands.command()
+    async def choose(self, ctx, *choices: str):
+        """Choose between multiple options"""
+        clean_choices = [
+            discord.utils.escape_mentions(discord.utils.escape_markdown(choice))
+            for choice in choices
+        ]
+        
+        if len(clean_choices) < 2:
+            await ctx.send("I need at least 2 choices to pick from!")
+            return
+            
+        await ctx.send(f"I choose: **{random.choice(clean_choices)}**")
+
+    @commands.command()
+    async def snipe(self, ctx):
+        """Shows the last deleted message in the channel"""
+        handlers = self.bot.get_cog('EventHandlers')
+        if not handlers:
+            return
+            
+        guild_deletes = handlers.deleted_messages.get(ctx.guild.id, {})
+        deleted_msg = guild_deletes.get(ctx.channel.id)
+        
+        if not deleted_msg:
+            await ctx.send("There's nothing to snipe!")
+            return
+            
+        embed = discord.Embed(
+            description=deleted_msg['content'] or "*No text content*",
+            color=0x2B2D31,
+            timestamp=deleted_msg['timestamp']
+        )
+        
+        embed.set_author(
+            name=deleted_msg['author'].name,
+            icon_url=deleted_msg['author'].display_avatar.url
+        )
+        
+        if deleted_msg['reference']:
+            embed.description += f"\n\nReplying to [this message]({ctx.channel.jump_url}/{deleted_msg['reference']})"
+            
+        if deleted_msg['attachments']:
+            embed.set_image(url=deleted_msg['attachments'][0])
+            
+        embed.set_footer(text=f"Sniped by {ctx.author.name}")
+        
+        await ctx.send(embed=embed)
+
+    @commands.command(aliases=['google'])
+    async def lmgtfy(self, ctx, *, search_terms: str):
+        """Create a Let Me Google That For You link"""
+        clean_terms = discord.utils.escape_mentions(search_terms)
+        clean_terms = discord.utils.escape_markdown(clean_terms)
+        encoded_terms = urllib.parse.quote_plus(clean_terms)
+        
+        if len(encoded_terms) > 500:
+            await ctx.send("Search query too long!")
+            return
+            
+        await ctx.send(f"<https://letmegooglethat.com/?q={encoded_terms}>")
+
+    ###########################
+    ## Fun Rating Commands
+    ###########################
+    @commands.command()
+    async def rate(self, ctx, *, thing: str):
+        """Rate anything out of 10"""
+        if '@everyone' in thing or '@here' in thing:
+            await ctx.send("Nice try!")
+            return
+        thing = discord.utils.escape_mentions(thing)
+        
+        seed = sum(ord(char) for char in thing.lower())
+        random.seed(seed)
+        
+        rating = random.randint(0, 10)
+        emoji = "💫" if rating >= 8 else "⭐" if rating >= 5 else "💢"
+        
+        await ctx.send(f"I rate {thing} a **{rating}/10** {emoji}")
+        
+        random.seed()
+
+    @commands.command()
+    async def judge(self, ctx, *, thing: str):
+        """Get judged"""
+        if '@everyone' in thing or '@here' in thing:
+            await ctx.send("Nice try!")
+            return
+        thing = discord.utils.escape_mentions(thing)
+        
+        judgements = [
+            "seems kinda sus",
+            "pretty based ngl",
+            "cringe",
+            "absolutely cursed",
+            "needs to touch grass",
+            "certified classic",
+            "wouldn't recommend",
+            "literally me",
+            "peak content",
+            "mid"
+        ]
+        
+        seed = sum(ord(char) for char in thing.lower())
+        random.seed(seed)
+        judgement = random.choice(judgements)
+        random.seed()
+        
+        await ctx.send(f"**{thing}** {judgement}")
+
+    @commands.command()
+    async def vibe(self, ctx):
+        """Check the current vibe"""
+        vibes = [
+            "absolutely unhinged", "ready for a nap", "needs coffee", 
+            "chaotic neutral", "touch grass", 
+            "questioning reality", "ascending", "grass touched", 
+            "running on spite", "downloading brain.exe", "rebooting..."
+        ]
+        
+        time = datetime.now()
+        random.seed(time.hour)
+        vibe = random.choice(vibes)
+        random.seed()
+        
+        await ctx.send(f"**{vibe}**")
+
+    ###########################
+    ## Miscellaneous Commands
+    ###########################
+    @commands.command(aliases=['punish', 'troll', 'bange', 'jail'])
+    @commands.has_permissions(ban_members=True)
+    async def bean(self, ctx, member: commands.MemberConverter = None):
+        """Bean a user (totally real ban command)"""
+        if not member:
+            return
+
+        if member.id == ctx.author.id:
+            await ctx.send("Nice try.")
+            return
+
+        with open('data/strings.json', 'r') as f:
+            strings = json.load(f)
+            action = random.choice(strings['user_was_x'])
+
+        await ctx.send(f"{member.display_name} was {action}")
+
+    @commands.command(name="8ball", aliases=['8'])
+    async def _8ball(self, ctx, *, question: str):
+        """Ask the magic 8ball a question"""
+        responses = [
+            "It is certain", "Without a doubt", "You may rely on it",
+            "Yes definitely", "It is decidedly so", "As I see it, yes",
+            "Most likely", "Yes", "Signs point to yes", 
+            "Reply hazy try again", "Ask again later",
+            "Better not tell you now", "Cannot predict now",
+            "Concentrate and ask again", "Don't count on it",
+            "My reply is no", "My sources say no",
+            "Outlook not so good", "Very doubtful"
+        ]
+        
+        if not question.endswith('?'):
+            await ctx.send("That doesn't look like a question!")
+            return
+            
+        await ctx.send(f"🎱 {random.choice(responses)}")
+
+    @commands.command()
+    async def f(self, ctx, *, reason: str = None):
+        """Pay respects"""
+        if reason:
+            if '@everyone' in reason or '@here' in reason:
+                await ctx.send("Nice try!")
+                return
+            reason = discord.utils.escape_mentions(reason)
+            
+        hearts = ['❤️', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍']
+        reason_text = f" for {reason}" if reason else ""
+        await ctx.send(f"**{ctx.author.name}** has paid their respects{reason_text} {random.choice(hearts)}")
+
+    @commands.command(aliases=['ud', 'define'])
+    async def urban(self, ctx, *, word: str):
+        """Search Urban Dictionary for a word"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"https://api.urbandictionary.com/v0/define?term={urllib.parse.quote(word)}"
+                ) as resp:
+                    data = await resp.json()
+                    
+            if not data['list']:
+                await ctx.send("No results found!")
+                return
+                
+            entry = data['list'][0]
+            
+            embed = discord.Embed(
+                title=f"{entry['word']}",
+                url=entry['permalink'],
+                color=0x2B2D31
+            )
+            
+            definition = entry['definition'][:2048] + '...' if len(entry['definition']) > 2048 else entry['definition']
+            embed.add_field(name="Definition", value=definition, inline=False)
+            
+            if entry['example']:
+                example = entry['example'][:1024] + '...' if len(entry['example']) > 1024 else entry['example']
+                embed.add_field(name="Example", value=example, inline=False)
+                
+            embed.set_footer(
+                text=f"👍 {entry['thumbs_up']} | 👎 {entry['thumbs_down']} | By {entry['author']}"
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            await ctx.send("An error occurred while fetching the definition.")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
