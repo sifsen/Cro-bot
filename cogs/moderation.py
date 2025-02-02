@@ -5,6 +5,7 @@ import re
 import base64
 import time
 from typing import Union
+import asyncio
 
 from utils.helpers import PermissionHandler
 from discord.ext import commands
@@ -243,12 +244,13 @@ class Moderation(commands.Cog):
         """Ban a member from the server"""
         try:
             if member.top_role >= ctx.author.top_role:
-                await ctx.send("You cannot ban someone with a higher or equal role!")
+                await ctx.reply("You cannot ban someone with a higher or equal role!")
                 return
 
             confirm_view = discord.ui.View()
             confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.danger)
             cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
+            compromised_button = discord.ui.Button(label="Compromised Account", style=discord.ButtonStyle.primary)
 
             async def confirm_callback(interaction):
                 if interaction.user != ctx.author:
@@ -257,6 +259,7 @@ class Moderation(commands.Cog):
 
                 await member.ban(reason=reason)
                 await self.logger.log_action(ctx, "Ban", member, reason)
+                await member.send(f"You were banned from **{ctx.guild.name}**!\nReason: ` {reason or 'No reason provided'} `")
                 
                 with open('data/strings.json', 'r') as f:
                     strings = json.load(f)
@@ -273,12 +276,46 @@ class Moderation(commands.Cog):
                 await confirm_message.edit(content="Guess not then.", view=None)
                 await interaction.response.defer()
 
+            async def compromised_callback(interaction):
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    return
+
+                try:
+                    await interaction.response.defer()
+                    
+                    dm_message = (
+                        f"You were banned from {ctx.guild.name} because your account showed signs of being compromised.\n\n"
+                        "For your security, please:\n"
+                        "1. Change your Discord password\n"
+                        "2. Enable 2-factor authentication\n"
+                        "3. Remove any suspicious authorized apps\n"
+                        "4. Check for suspicious login locations\n\n"
+                        "You have been automatically unbanned and can rejoin once you've secured your account."
+                    )
+                    try:
+                        await member.send(dm_message)
+                    except:
+                        pass
+
+                    await member.ban(reason="Compromised account", delete_message_days=1)
+                    await self.logger.log_action(ctx, "Ban", member, "Compromised account")
+                    
+                    await asyncio.sleep(2)
+                    await ctx.guild.unban(member)
+                    
+                    await interaction.message.edit(f"{member.mention} was banned for compromised account.")
+                except Exception as e:
+                    await interaction.message.edit(f"Error handling compromised account: {str(e)}")
+
             confirm_button.callback = confirm_callback
             cancel_button.callback = cancel_callback
+            compromised_button.callback = compromised_callback
             confirm_view.add_item(confirm_button)
             confirm_view.add_item(cancel_button)
+            confirm_view.add_item(compromised_button)
 
-            confirm_message = await ctx.send(f"Are you sure you want to ban {member.global_name}?", view=confirm_view)
+            confirm_message = await ctx.reply(f"Are you sure you want to ban {member.global_name}?", view=confirm_view)
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to ban that member!")
@@ -561,6 +598,24 @@ class Moderation(commands.Cog):
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to manage channel permissions!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Warn Command
+    #################################   
+    @commands.command()
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def warn(self, ctx, member: discord.Member, *, reason=None):
+        """Warn a member"""
+        try:
+            if member.top_role >= ctx.author.top_role:
+                await ctx.reply("You cannot warn someone with a higher or equal role!")
+                return
+            
+            await self.logger.log_action(ctx, "Warning", member, reason)
+            await ctx.reply(f"Warned {member.mention}" + (f" for: {reason}" if reason else ""))
+
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
