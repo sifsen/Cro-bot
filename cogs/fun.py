@@ -507,7 +507,7 @@ class Fun(commands.Cog):
             "┬─┬ノ( º _ ºノ)",
             "┬──┬◡ﾉ(° -°ﾉ)",
             "┬━┬ ノ( ゜-゜ノ)",
-            "┬──┬ ¯\_(ツ)"
+            "┬──┬ ¯\\_(ツ)"
         ]
         await ctx.send(f"*{ctx.author.name} restores order* {random.choice(unflips)}")
 
@@ -621,7 +621,6 @@ class Fun(commands.Cog):
     @commands.command()
     async def reverse(self, ctx, *, text: str):
         """Reverse any text"""
-        # Sanitize mentions
         if '@everyone' in text or '@here' in text:
             await ctx.send("Nice try!")
             return
