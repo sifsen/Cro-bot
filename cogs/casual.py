@@ -11,6 +11,7 @@ class Casual(commands.Cog):
         self.bot = bot
         self.cal = parsedatetime.Calendar()
         self.active_reminders = {}
+        self.afk_users = {}  # Store AFK users and their messages
         
     #################################
     ## About Command
@@ -58,12 +59,45 @@ class Casual(commands.Cog):
     #################################
     @commands.command()
     async def userinfo(self, ctx, member: discord.Member = None):
-        """Get info about a user"""
+        """Get detailed info about a user"""
         member = member or ctx.author
-        embed = discord.Embed(title=f"User Info - {member.tag}", color=member.color)
-        embed.add_field(name="ID", value=f"```{member.id}```")
-        embed.add_field(name="Joined", value=f"```{member.joined_at.strftime('%Y-%m-%d')}```")
-        embed.set_thumbnail(url=member.avatar.url)
+        
+        roles = [role.mention for role in member.roles[1:]]
+        
+        embed = discord.Embed(
+            title=f"{member.name}",
+            color=member.color,
+            timestamp=datetime.utcnow()
+        )
+        
+        embed.set_thumbnail(url=member.display_avatar.url)
+        
+        embed.add_field(name="ID", value=f"```{member.id}```", inline=False)
+        embed.add_field(
+            name="Created at",
+            value=discord.utils.format_dt(member.created_at, 'F'),
+            inline=True
+        )
+        embed.add_field(
+            name="Joined at",
+            value=discord.utils.format_dt(member.joined_at, 'F'),
+            inline=True
+        )
+        
+        if roles:
+            embed.add_field(
+                name=f"Roles [{len(roles)}]",
+                value=" ".join(roles) if len(" ".join(roles)) < 1024 else f"{len(roles)} roles",
+                inline=False
+            )
+        
+        embed.add_field(name="Top Role", value=member.top_role.mention, inline=True)
+        embed.add_field(
+            name="Status",
+            value=str(member.status).title(),
+            inline=True
+        )
+        
         await ctx.send(embed=embed)
     
     #################################
@@ -101,8 +135,13 @@ class Casual(commands.Cog):
     async def reminder(self, ctx, time_str: str, *, reminder_text: str):
         """Set a reminder
         Example: !reminder 2h30m check the oven"""
+        reminder_text = discord.utils.escape_mentions(reminder_text)
+        reminder_text = discord.utils.escape_markdown(reminder_text)
         
-        # verwerk de tijd input
+        if len(reminder_text) > 1000:
+            await ctx.send("Reminder text too long! (max 1000 characters)")
+            return
+        
         total_seconds = 0
         time_parts = re.findall(r'(\d+)([wdhms])', time_str.lower())
         
@@ -131,9 +170,11 @@ class Casual(commands.Cog):
             await ctx.send("Reminder time too far in the future (max 30 days)")
             return
             
-        # maak de reminder
         reminder_time = datetime.now() + timedelta(seconds=total_seconds)
         reminder_id = f"{ctx.author.id}-{int(time.time())}"
+        
+        if not hasattr(self, 'active_reminders'):
+            self.active_reminders = {}
         
         self.active_reminders[reminder_id] = {
             'channel_id': ctx.channel.id,
@@ -142,7 +183,6 @@ class Casual(commands.Cog):
             'time': reminder_time.isoformat()
         }
         
-        # laat zien wanneer
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         
@@ -154,13 +194,12 @@ class Casual(commands.Cog):
         
         await ctx.reply(confirm_msg, ephemeral=True)
         
-        # start de timer
         async def remind():
             await asyncio.sleep(total_seconds)
             if reminder_id in self.active_reminders:
                 channel = self.bot.get_channel(ctx.channel.id)
                 if channel:
-                    await channel.reply(f"# Reminder! {ctx.author.mention}\n{reminder_text}")
+                    await channel.send(f"# Reminder! {ctx.author.mention}\n{reminder_text}")
                 del self.active_reminders[reminder_id]
                 
         self.bot.loop.create_task(remind())
@@ -171,6 +210,9 @@ class Casual(commands.Cog):
     @commands.command()
     async def reminders(self, ctx):
         """List your active reminders"""
+        if not hasattr(self, 'active_reminders'):
+            self.active_reminders = {}
+            
         user_reminders = {k: v for k, v in self.active_reminders.items() 
                          if v['author_id'] == ctx.author.id}
         
@@ -199,6 +241,156 @@ class Casual(commands.Cog):
             )
             
         await ctx.send(embed=embed)
+
+    #################################
+    ## Stopwatch Command
+    #################################
+    @commands.command(aliases=['sw'])
+    async def stopwatch(self, ctx):
+        """Start or stop the stopwatch"""
+        if not hasattr(self, 'stopwatches'):
+            self.stopwatches = {}
+            
+        if ctx.author.id not in self.stopwatches:
+            self.stopwatches[ctx.author.id] = int(time.time())
+            await ctx.send(f"{ctx.author.mention} Stopwatch started!")
+        else:
+            duration = int(time.time()) - self.stopwatches[ctx.author.id]
+            formatted_time = str(timedelta(seconds=duration))
+            await ctx.send(f"{ctx.author.mention} Stopwatch stopped!\nTime: **{formatted_time}**")
+            self.stopwatches.pop(ctx.author.id, None)
+
+    #################################
+    ## Server Info Command
+    #################################
+    @commands.command()
+    @commands.guild_only()
+    async def serverinfo(self, ctx):
+        """Display detailed server information"""
+        guild = ctx.guild
+        
+        total_members = guild.member_count
+        online_members = len([m for m in guild.members if m.status != discord.Status.offline])
+        text_channels = len(guild.text_channels)
+        voice_channels = len(guild.voice_channels)
+        categories = len(guild.categories)
+        
+        embed = discord.Embed(
+            title=f"Server Info - {guild.name}",
+            color=0x2B2D31,
+            timestamp=datetime.utcnow()
+        )
+        
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
+            
+        embed.add_field(
+            name="Owner", 
+            value=guild.owner.mention,
+            inline=True
+        )
+        embed.add_field(
+            name="Created On",
+            value=discord.utils.format_dt(guild.created_at, 'F'),
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Members",
+            value=f"Total: {total_members}\nOnline: {online_members}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Channels",
+            value=f"Text: {text_channels}\nVoice: {voice_channels}\nCategories: {categories}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="Roles",
+            value=len(guild.roles),
+            inline=True
+        )
+        
+        if guild.features:
+            features = "\n".join(f"• {feature.replace('_', ' ').title()}" for feature in guild.features)
+            embed.add_field(
+                name="Features",
+                value=features,
+                inline=False
+            )
+        
+        if guild.premium_tier > 0:
+            boost_info = f"Level {guild.premium_tier}\nBoosts: {guild.premium_subscription_count}"
+            embed.add_field(
+                name="Server Boost",
+                value=boost_info,
+                inline=True
+            )
+            
+        verification = {
+            discord.VerificationLevel.none: "None",
+            discord.VerificationLevel.low: "Low",
+            discord.VerificationLevel.medium: "Medium",
+            discord.VerificationLevel.high: "High",
+            discord.VerificationLevel.highest: "Highest"
+        }
+        embed.add_field(
+            name="Security",
+            value=f"Verification: {verification[guild.verification_level]}",
+            inline=True
+        )
+        
+        embed.set_footer(text=f"ID: {guild.id}")
+        await ctx.send(embed=embed)
+
+    #################################
+    ## AFK System
+    #################################
+    @commands.command()
+    async def afk(self, ctx, *, message: str = "AFK"):
+        """Set your AFK status"""
+        if '@everyone' in message or '@here' in message:
+            await ctx.send("Nice try!")
+            return
+        message = discord.utils.escape_mentions(message)
+        
+        self.afk_users[ctx.author.id] = {
+            'message': message,
+            'time': datetime.now()
+        }
+        await ctx.send(f"You are now AFK:\n**{message}**")
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+
+        ctx = await self.bot.get_context(message)
+        if ctx.valid and ctx.command and ctx.command.name == 'afk':
+            return
+
+        if message.author.id in self.afk_users:
+            del self.afk_users[message.author.id]
+            await message.channel.send(f"Welcome back {message.author.mention}, I've removed your AFK status!")
+            return
+
+        for mention in message.mentions:
+            if mention.id in self.afk_users:
+                afk_data = self.afk_users[mention.id]
+                time_diff = datetime.now() - afk_data['time']
+                hours = time_diff.seconds // 3600
+                minutes = (time_diff.seconds % 3600) // 60
+                
+                time_str = ""
+                if hours > 0:
+                    time_str += f"{hours}h "
+                time_str += f"{minutes}m ago"
+                
+                await ctx.reply(
+                    f"{mention.display_name} is AFK: **{afk_data['message']}**\n**{time_str}**"
+                )
 
 async def setup(bot):
     await bot.add_cog(Casual(bot))
