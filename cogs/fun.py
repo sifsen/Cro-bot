@@ -990,7 +990,7 @@ class Fun(commands.Cog):
             await ctx.send("That doesn't look like a question!")
             return
             
-        await ctx.send(f"🎱 {random.choice(responses)}")
+        await ctx.send(f"{random.choice(responses)}")
 
     @commands.command()
     async def f(self, ctx, *, reason: str = None):
