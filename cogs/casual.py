@@ -11,7 +11,7 @@ class Casual(commands.Cog):
         self.bot = bot
         self.cal = parsedatetime.Calendar()
         self.active_reminders = {}
-        self.afk_users = {}  # Store AFK users and their messages
+        self.afk_users = {}
         
     #################################
     ## About Command
