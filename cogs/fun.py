@@ -1186,5 +1186,85 @@ class Fun(commands.Cog):
         
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def conspiracy(self, ctx):
+        """Generate a random conspiracy theory"""
+        
+        subjects = [
+            "Discord light theme users",
+            "People who don't use dark mode",
+            "Users who read the TOS",
+            "People who touch grass",
+            "Discord developers",
+            "Bot developers",
+            "People who sleep properly",
+            "Offline status users",
+            "People who don't use emojis",
+            "Users with perfect ping",
+            "People who never misclick"
+        ]
+        
+        actions = [
+            "are secretly plotting to",
+            "have been working for years to",
+            "don't want you to know they",
+            "have formed an alliance to",
+            "have discovered how to",
+            "are hiding the truth about how they",
+            "have been pretending to",
+            "are using bots to",
+            "have created an algorithm to",
+            "have been spending millions to"
+        ]
+        
+        objects = [
+            "replace all emojis with comic sans",
+            "make everyone use light theme",
+            "delete all the memes",
+            "force everyone to touch grass",
+            "turn off everyone's RGB lighting",
+            "make ping permanently 999ms",
+            "remove all keyboard shortcuts",
+            "implement mandatory grass touching",
+            "make sleep schedules actually healthy",
+            "fix all the bugs (suspicious)",
+            "make everyone read the terms of service",
+            "eliminate copy-paste functionality",
+            "replace all servers with book clubs",
+            "make everyone go outside",
+            "enforce proper posture at desks"
+        ]
+        
+        evidence = [
+            "I saw it in a meme once",
+            "Source: trust me bro",
+            "My cat told me",
+            "It was revealed to me in a dream",
+            "A random Discord status told me",
+            "The loading screen tips confirmed it",
+            "My RGB lights flickered in morse code",
+            "My high ping is proof",
+            "The bugs are actually features",
+            "The discord loading messages speak the truth",
+            "A bot whispered it to me",
+            "The server hamsters leaked this info",
+            "I made it the fuck up!"
+        ]
+        
+        theory = (
+            f"{random.choice(subjects)} {random.choice(actions)} "
+            f"{random.choice(objects)}!\n\n"
+            f"*Evidence: {random.choice(evidence)}*"
+        )
+        
+        embed = discord.Embed(
+            title="CONSPIRACY ALERT",
+            description=theory,
+            color=0x2B2D31
+        )
+        embed.set_footer(text="Wake up sheeple!")
+        
+        await ctx.send(embed=embed)
+
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
