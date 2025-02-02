@@ -72,8 +72,22 @@ class Bot(commands.Bot):
     ## Get Prefix
     #################################
     async def get_prefix(self, message):
-        prefixes = self.default_prefixes.copy()
-        return prefixes
+        if not message.guild:
+            return self.default_prefixes
+
+        settings = self.settings.get_all_server_settings(message.guild.id)
+        prefixes = []
+        
+        # custom prefix dingetje
+        custom_prefix = settings.get('prefix')
+        if custom_prefix:
+            prefixes.append(custom_prefix)
+        
+        # normale prefixes
+        if settings.get('use_default_prefix', True):
+            prefixes.extend(self.default_prefixes)
+        
+        return prefixes if prefixes else self.default_prefixes  # fallback naar defaults als ie leeg is
 
 def main():
     bot = Bot()
