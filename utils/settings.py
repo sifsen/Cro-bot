@@ -10,6 +10,7 @@ class ServerSettings:
         self.settings = self._load_settings()
         self.default_settings = {
             'server_name': None,
+            'prefix': None,
             'log_channel_join_leave': None,
             'log_channel_mod_audit': None,
             'log_channel_edits': None,
@@ -18,7 +19,8 @@ class ServerSettings:
             'mod_role': None,
             'admin_role': None,
             'starboard_channel': None,
-            'starboard_threshold': 5
+            'starboard_threshold': 5,
+            'tags': {}
         }
 
     #################################
