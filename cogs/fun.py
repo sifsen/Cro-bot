@@ -935,22 +935,89 @@ class Fun(commands.Cog):
         
         await ctx.send(f"**{thing}** {judgement}")
 
-    @commands.command()
-    async def vibe(self, ctx):
-        """Check the current vibe"""
-        vibes = [
-            "absolutely unhinged", "ready for a nap", "needs coffee", 
-            "chaotic neutral", "touch grass", 
-            "questioning reality", "ascending", "grass touched", 
-            "running on spite", "downloading brain.exe", "rebooting..."
-        ]
+    @commands.command(aliases=['vibe'])
+    async def vibecheck(self, ctx, member: discord.Member = None):
+        """Perform a totally scientific vibe check"""
+        member = member or ctx.author
         
-        time = datetime.now()
-        random.seed(time.hour)
-        vibe = random.choice(vibes)
-        random.seed()
+        data = {
+            "username_length": len(member.name),
+            "avatar_hash": hash(str(member.display_avatar.url)),
+            "created_at": int(member.created_at.timestamp()),
+            "discriminator": int(member.discriminator) if member.discriminator != '0' else 0,
+            "roles": len(member.roles),
+            "color": member.color.value if member.color != discord.Color.default() else 0,
+            "status": hash(str(member.status)),
+            "activities": len(member.activities) if member.activities else 0
+        }
         
-        await ctx.send(f"**{vibe}**")
+        day_seed = int(datetime.now().strftime("%Y%m%d"))
+        random.seed(sum(data.values()) + day_seed)
+        
+        vibes = {
+            "chaos": random.randint(0, 100),
+            "swag": random.randint(0, 100),
+            "gaming": random.randint(0, 100),
+            "touch_grass": random.randint(0, 100),
+            "sleep": random.randint(0, 100),
+            "meme": random.randint(0, 100),
+            "productivity": random.randint(0, 100),
+            "creativity": random.randint(0, 100)
+        }
+        
+        def get_meter(value):
+            blocks = ["░", "▒", "▓", "█"]
+            meter = ""
+            segments = 10
+            for i in range(segments):
+                threshold = (i + 1) * (100 / segments)
+                if value >= threshold:
+                    block_index = min(3, int((value - threshold) / (100 / segments / 1.5)))
+                    meter += blocks[block_index]
+                else:
+                    meter += blocks[0]
+            return meter
+        
+        avg_vibe = sum(vibes.values()) / len(vibes)
+        if avg_vibe >= 90:
+            grade = "S+"
+            conclusion = "Vibes have transcended reality ✨"
+        elif avg_vibe >= 80:
+            grade = "S"
+            conclusion = "Elite vibes detected"
+        elif avg_vibe >= 70:
+            grade = "A"
+            conclusion = "Certified fresh vibes"
+        elif avg_vibe >= 60:
+            grade = "B"
+            conclusion = "Vibing respectfully"
+        elif avg_vibe >= 50:
+            grade = "C"
+            conclusion = "Vibes are a bit sus"
+        elif avg_vibe >= 40:
+            grade = "D"
+            conclusion = "Vibes need maintenance"
+        else:
+            grade = "F"
+            conclusion = "Vibe check failed successfully"
+        
+        embed = discord.Embed(
+            title=f"Vibe Check: {member.display_name}",
+            description=f"Overall Grade: **{grade}** ({avg_vibe:.1f}%)",
+            color=member.color if member.color != discord.Color.default() else 0x2B2D31
+        )
+        
+        for name, value in vibes.items():
+            embed.add_field(
+                name=name.replace('_', ' ').title(),
+                value=f"`{get_meter(value)}` {value}%",
+                inline=False
+            )
+        
+        embed.set_footer(text=conclusion)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        
+        await ctx.send(embed=embed)
 
     ###########################
     ## Miscellaneous Commands
