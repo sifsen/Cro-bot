@@ -32,6 +32,9 @@ class MessageEvents(commands.Cog):
         if 'fish' in content:
             await message.add_reaction('🐟')
 
+        if '69' in content:
+            await message.channel.send('( ͡° ͜ʖ ͡°)')
+
         #################################
         ## Color Thing
         #################################
