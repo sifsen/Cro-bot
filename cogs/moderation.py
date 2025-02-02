@@ -514,12 +514,95 @@ class Moderation(commands.Cog):
     #################################
     @commands.command()
     @PermissionHandler.has_permissions(manage_messages=True)    
-    async def purge(self, ctx, amount: int):
-        """Delete a specified number of messages"""
+    async def purge(self, ctx, amount: int, *, flags: str = None):
+        """Delete messages with advanced filtering
+        Flags:
+        --user @user: Messages from specific user
+        --contains text: Messages containing text
+        --startswith text: Messages starting with text
+        --endswith text: Messages ending with text
+        --links: Messages containing links
+        --invites: Messages containing Discord invites
+        --images: Messages containing attachments
+        --embeds: Messages containing embeds
+        --bots: Messages from bots
+        --humans: Messages from humans
+        --emoji: Messages containing emoji
+        --reactions: Messages with reactions
+        --pins: Include pinned messages (default: excluded)"""
+        
+        def message_check(message):
+            if message.pinned and ('pins' not in flag_dict):
+                return False
+                
+            if flags is None:
+                return True
+                
+            flag_dict = {}
+            current_flag = None
+            current_value = []
+            
+            for part in flags.split():
+                if part.startswith('--'):
+                    if current_flag:
+                        flag_dict[current_flag] = ' '.join(current_value)
+                    current_flag = part[2:]
+                    current_value = []
+                else:
+                    current_value.append(part)
+                    
+            if current_flag:
+                flag_dict[current_flag] = ' '.join(current_value)
+            
+            if 'user' in flag_dict:
+                user_id = re.findall(r'\d+', flag_dict['user'])[0]
+                if str(message.author.id) != user_id:
+                    return False
+            
+            if 'contains' in flag_dict and flag_dict['contains'].lower() not in message.content.lower():
+                return False
+            if 'startswith' in flag_dict and not message.content.lower().startswith(flag_dict['startswith'].lower()):
+                return False
+            if 'endswith' in flag_dict and not message.content.lower().endswith(flag_dict['endswith'].lower()):
+                return False
+            
+            if 'links' in flag_dict and not re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content):
+                return False
+            if 'invites' in flag_dict and not re.search(r'discord\.gg/\w+', message.content):
+                return False
+            if 'images' in flag_dict and not message.attachments:
+                return False
+            if 'embeds' in flag_dict and not message.embeds:
+                return False
+            if 'bots' in flag_dict and not message.author.bot:
+                return False
+            if 'humans' in flag_dict and message.author.bot:
+                return False
+            if 'emoji' in flag_dict and not re.findall(r'<a?:\w+:\d+>|[\U0001F300-\U0001F9FF]', message.content):
+                return False
+            if 'reactions' in flag_dict and not message.reactions:
+                return False
+                
+            return True
+
         try:
-            await ctx.channel.purge(limit=amount + 1)
-            msg = await ctx.send(f"Deleted {amount} messages.")
+            deleted = await ctx.channel.purge(limit=amount + 1, check=message_check)
+            msg = await ctx.send(f"Deleted {len(deleted) - 1} messages.")
             await msg.delete(delay=3)
+            
+            mod_audit_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_mod_audit")
+            if mod_audit_channel_id:
+                channel = ctx.guild.get_channel(int(mod_audit_channel_id))
+                if channel:
+                    embed = discord.Embed(
+                        title="Bulk Messages Deleted",
+                        description=f"**Channel:** {ctx.channel.mention}\n**Amount:** {len(deleted) - 1}\n**Moderator:** {ctx.author.mention}",
+                        color=discord.Color.red(),
+                        timestamp=datetime.utcnow()
+                    )
+                    if flags:
+                        embed.add_field(name="Filters Used", value=f"```{flags}```")
+                    await channel.send(embed=embed)
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to delete messages.")
