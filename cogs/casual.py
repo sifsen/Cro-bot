@@ -1,10 +1,16 @@
 import discord
-
 from discord.ext import commands
+import asyncio
+from datetime import datetime, timedelta
+import parsedatetime
+import time
+import re
 
 class Casual(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.cal = parsedatetime.Calendar()
+        self.active_reminders = {}
         
     #################################
     ## About Command
@@ -86,6 +92,112 @@ class Casual(commands.Cog):
             
         embed = discord.Embed(title=f"{member.display_name}'s Banner", color=member.color)
         embed.set_image(url=user.banner.url)
+        await ctx.send(embed=embed)
+
+    #################################
+    ## Reminder Command
+    #################################
+    @commands.command(aliases=['remind', 'remindme'])
+    async def reminder(self, ctx, time_str: str, *, reminder_text: str):
+        """Set a reminder
+        Example: !reminder 2h30m check the oven"""
+        
+        # verwerk de tijd input
+        total_seconds = 0
+        time_parts = re.findall(r'(\d+)([wdhms])', time_str.lower())
+        
+        if not time_parts:
+            await ctx.send("What are you doing?")
+            return
+            
+        for value, unit in time_parts:
+            value = int(value)
+            if unit == 'w':
+                total_seconds += value * 7 * 24 * 60 * 60
+            elif unit == 'd':
+                total_seconds += value * 24 * 60 * 60
+            elif unit == 'h':
+                total_seconds += value * 60 * 60
+            elif unit == 'm':
+                total_seconds += value * 60
+            elif unit == 's':
+                total_seconds += value
+            
+        if total_seconds == 0:
+            await ctx.send("Please specify a valid duration!")
+            return
+            
+        if total_seconds > 2592000:
+            await ctx.send("Reminder time too far in the future (max 30 days)")
+            return
+            
+        # maak de reminder
+        reminder_time = datetime.now() + timedelta(seconds=total_seconds)
+        reminder_id = f"{ctx.author.id}-{int(time.time())}"
+        
+        self.active_reminders[reminder_id] = {
+            'channel_id': ctx.channel.id,
+            'author_id': ctx.author.id,
+            'text': reminder_text,
+            'time': reminder_time.isoformat()
+        }
+        
+        # laat zien wanneer
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        
+        confirm_msg = f"I'll remind you in "
+        if hours > 0:
+            confirm_msg += f"{int(hours)} hours "
+        if minutes > 0:
+            confirm_msg += f"{int(minutes)} minutes"
+        
+        await ctx.reply(confirm_msg, ephemeral=True)
+        
+        # start de timer
+        async def remind():
+            await asyncio.sleep(total_seconds)
+            if reminder_id in self.active_reminders:
+                channel = self.bot.get_channel(ctx.channel.id)
+                if channel:
+                    await channel.send(f"{ctx.author.mention} Reminder: {reminder_text}")
+                del self.active_reminders[reminder_id]
+                
+        self.bot.loop.create_task(remind())
+
+    #################################
+    ## Reminders Command
+    #################################
+    @commands.command()
+    async def reminders(self, ctx):
+        """List your active reminders"""
+        user_reminders = {k: v for k, v in self.active_reminders.items() 
+                         if v['author_id'] == ctx.author.id}
+        
+        if not user_reminders:
+            await ctx.send("You have no active reminders!")
+            return
+            
+        embed = discord.Embed(title="Your active reminders", color=0x2B2D31)
+        
+        for reminder_id, reminder in user_reminders.items():
+            reminder_time = datetime.fromisoformat(reminder['time'])
+            time_left = reminder_time - datetime.now()
+            hours = int(time_left.total_seconds() // 3600)
+            minutes = int((time_left.total_seconds() % 3600) // 60)
+            
+            time_str = ""
+            if hours > 0:
+                time_str += f"{hours}h "
+            if minutes > 0:
+                time_str += f"{minutes}m"
+                
+            embed.add_field(
+                name=f"In {time_str}",
+                value=reminder['text'],
+                inline=False
+            )
+            
         await ctx.send(embed=embed)
 
 async def setup(bot):
