@@ -160,7 +160,7 @@ class Casual(commands.Cog):
             if reminder_id in self.active_reminders:
                 channel = self.bot.get_channel(ctx.channel.id)
                 if channel:
-                    await channel.send(f"{ctx.author.mention} Reminder: {reminder_text}")
+                    await channel.reply(f"# Reminder! {ctx.author.mention}\n{reminder_text}")
                 del self.active_reminders[reminder_id]
                 
         self.bot.loop.create_task(remind())
