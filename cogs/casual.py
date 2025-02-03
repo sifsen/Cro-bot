@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import parsedatetime
 import time
 import re
+import aiohttp
+from config import STEAM_API_KEY
 
 class Casual(commands.Cog):
     def __init__(self, bot):
@@ -391,6 +393,122 @@ class Casual(commands.Cog):
                 await ctx.reply(
                     f"{mention.display_name} is AFK: **{afk_data['message']}**\n**{time_str}**"
                 )
+
+    #################################
+    ## Steam Command
+    #################################
+    @commands.command()
+    async def steam(self, ctx, *, steam_id: str):
+        """Display a Steam profile
+        Usage: !steam <steamID/customURL/profileURL>"""
+        
+        if not STEAM_API_KEY:
+            await ctx.send("Steam API key not configured or invalid!")
+            return
+        
+        if "steamcommunity.com" not in steam_id and not steam_id.isdigit():
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={STEAM_API_KEY}&vanityurl={steam_id}"
+                ) as resp:
+                    data = await resp.json()
+                    if data['response'].get('success') == 1:
+                        steam_id = data['response']['steamid']
+                    else:
+                        await ctx.send("Could not find Steam profile!")
+                        return
+        elif "steamcommunity.com" in steam_id:
+            if "/id/" in steam_id:
+                custom_url = steam_id.split("/id/")[1].split("/")[0]
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={STEAM_API_KEY}&vanityurl={custom_url}"
+                    ) as resp:
+                        data = await resp.json()
+                        if data['response'].get('success') == 1:
+                            steam_id = data['response']['steamid']
+                        else:
+                            await ctx.send("Could not find Steam profile!")
+                            return
+            elif "/profiles/" in steam_id:
+                steam_id = steam_id.split("/profiles/")[1].split("/")[0]
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={STEAM_API_KEY}&steamids={steam_id}"
+            ) as resp:
+                data = await resp.json()
+                
+        if not data['response']['players']:
+            await ctx.send("Could not find Steam profile!")
+            return
+        
+        player = data['response']['players'][0]
+        
+        embed = discord.Embed(
+            title=player['personaname'],
+            url=player['profileurl'],
+            color=0x2B2D31
+        )
+        
+        embed.set_thumbnail(url=player['avatarfull'])
+        
+        status_map = {
+            0: "Offline",
+            1: "Online",
+            2: "Busy",
+            3: "Away",
+            4: "Snooze",
+            5: "Looking to Trade",
+            6: "Looking to Play"
+        }
+        status = status_map.get(player['personastate'], "Unknown")
+        
+        if player.get('gameextrainfo'):
+            status = f"Playing {player['gameextrainfo']}"
+        
+        embed.add_field(
+            name="Status",
+            value=status,
+            inline=True
+        )
+        
+        if 'timecreated' in player:
+            created_at = datetime.fromtimestamp(player['timecreated'])
+            embed.add_field(
+                name="Account Created",
+                value=discord.utils.format_dt(created_at, 'R'),
+                inline=True
+            )
+        
+        if player.get('loccountrycode'):
+            embed.add_field(
+                name="Location",
+                value=f":flag_{player['loccountrycode'].lower()}:",
+                inline=True
+            )
+        
+        embed.add_field(
+            name="Steam ID",
+            value=f"```{steam_id}```",
+            inline=False
+        )
+
+        links = [
+            f"[Profile]({player['profileurl']})",
+            f"[Add Friend]({player['profileurl']}friends/add)",
+            f"[Trade Offers]({player['profileurl']}tradeoffers)",
+            f"[Inventory]({player['profileurl']}inventory)",
+            f"[Games]({player['profileurl']}games/?tab=all)"
+        ]
+        
+        embed.add_field(
+            name="Quick Links",
+            value=" • ".join(links),
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Casual(bot))
