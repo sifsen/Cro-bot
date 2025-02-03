@@ -35,6 +35,7 @@ class Bot(commands.Bot):
         await self.load_extension("events.handlers")
         await self.load_extension("events.messages")
         await self.load_extension("events.logging")
+        await self.load_extension("events.twitch")
 
     #################################
     ## Ready and Status
