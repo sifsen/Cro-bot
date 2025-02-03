@@ -33,7 +33,7 @@ class Help(commands.Cog):
         embed = discord.Embed(
             title="You asked for help?",
             description=(
-                "**[Full Documentation](https://sen.wtf/docs/Rei)**\n\n"
+                "**[Full Documentation](https://sen.wtf/docs/Kael)**\n\n"
                 "**Key Features**\n"
                 "• Comprehensive logging system\n"
                 "• Advanced moderation tools\n"
@@ -47,8 +47,8 @@ class Help(commands.Cog):
                 "• `%tag` - Use custom tags\n"
                 "• `%remindme` - Set reminders\n\n"
                 "**Useful Links**\n"
-                "• [Documentation](https://sen.wtf/docs/Rei)\n"
-                "• [Source Code](https://github.com/CursedSen/Rei-bot/)\n"
+                "• [Documentation](https://sen.wtf/docs/Kael)\n"
+                "• [Source Code](https://github.com/CursedSen/Kael-bot/)\n"
             ),
             color=0x2B2D31
         )

@@ -18,9 +18,9 @@ class Casual(commands.Cog):
     #################################
     @commands.command()
     async def about(self, ctx):
-        """About Rei"""
+        """About Kael"""
         embed = discord.Embed(
-            title="About Rei",
+            title="About Kael",
             description=(
                 "Work in progress"
             ),
@@ -36,16 +36,16 @@ class Casual(commands.Cog):
     @commands.command(aliases=["issue", "features", "request", "suggestion"])
     async def issues(self, ctx):
         """Report an issue or request a feature"""
-        await ctx.send("Click [this link](https://github.com/CursedSen/Rei-bot/issues) to report an issue or request a feature!")
+        await ctx.send("Click [this link](https://github.com/CursedSen/Kael-bot/issues) to report an issue or request a feature!")
 
     #################################
-    ## Invite Rei
+    ## Invite Kael
     #################################
     @commands.command()
     async def invite(self, ctx):
-        """Invite Rei to your server"""
+        """Invite Kael to your server"""
         await ctx.send("Click [this link](https://discord.com/oauth2/authorize?client_id=1293508738036142091) to invite me to your server!")
-        
+
     #################################
     ## Ping Command
     #################################
