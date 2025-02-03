@@ -812,9 +812,11 @@ class Fun(commands.Cog):
     ## Utility Commands
     ###########################
     @commands.command()
+    @commands.is_owner()
     async def echo(self, ctx, *, message: str):
         """Echo a message"""
         if '@everyone' in message or '@here' in message:
+
             await ctx.send("Nice try.")
             return
             
