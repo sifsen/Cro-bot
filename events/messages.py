@@ -33,7 +33,12 @@ class MessageEvents(commands.Cog):
             await message.add_reaction('🐟')
 
         if '69' in content:
-            await message.channel.send('( ͡° ͜ʖ ͡°)')
+            try:
+                await message.channel.send('( ͡° ͜ʖ ͡°)')
+            except discord.Forbidden:
+                pass
+            except Exception as e:
+                print(f"Error in message handler: {e}")
 
         #################################
         ## Color Thing
