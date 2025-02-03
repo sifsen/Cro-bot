@@ -20,7 +20,11 @@ class ServerSettings:
             'admin_role': None,
             'starboard_channel': None,
             'starboard_threshold': 5,
-            'tags': {}
+            'tags': {},
+            'twitch': {
+                'notifications_channel': None,
+                'streamers': {},
+            }
         }
 
     #################################
