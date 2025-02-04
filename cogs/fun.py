@@ -1,6 +1,5 @@
 import random
 import json
-import pyfiglet
 import discord
 from datetime import datetime, timedelta
 from typing import Union
@@ -813,11 +812,9 @@ class Fun(commands.Cog):
     ## Utility Commands
     ###########################
     @commands.command()
-    @commands.is_owner()
     async def echo(self, ctx, *, message: str):
         """Echo a message"""
         if '@everyone' in message or '@here' in message:
-
             await ctx.send("Nice try.")
             return
             
@@ -1268,68 +1265,6 @@ class Fun(commands.Cog):
         embed.set_footer(text="Wake up sheeple!")
         
         await ctx.send(embed=embed)
-
-    @commands.command()
-    async def deepfry(self, ctx, *, text: str = None):
-        """Make text look like a deep fried meme"""
-        
-        if text is None and ctx.message.reference:
-            replied_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-            text = replied_msg.content
-            
-        if not text:
-            await ctx.send("You need to provide text or reply to a message!")
-            return
-        
-        emojis = ["😂", "👌", "💯", "🔥", "😤", "💪", "😎", "🅱️", "⚡", "💀", "😩", "🗿", "😳", "🥶", "⁉️", "❗", "‼️"]
-        
-        words = text.split()
-        fried = []
-        for word in words:
-            if random.random() < 0.3:
-                word = "🅱️" + word[1:] if word else word
-                
-            word = ''.join(c.upper() if random.random() > 0.5 else c.lower() for c in word)
-            
-            if random.random() < 0.3:
-                word = f"_{word}_"
-            if random.random() < 0.2:
-                word = f"*{word}*"
-                
-            fried.append(word)
-            if random.random() < 0.7:
-                fried.append(''.join(random.choices(emojis, k=random.randint(1, 3))))
-        
-        result = ' '.join(fried)
-        result = (''.join(random.choices(emojis, k=random.randint(2, 4))) + " " + 
-                 result + " " +
-                 ''.join(random.choices(emojis, k=random.randint(2, 4))))
-        
-        endings = [
-            "WHO DID THIS",
-            "IM CRYING",
-            "SCREAMING",
-            "I CANT EVEN",
-            "NO WAY",
-            "FR FR",
-            "ON GOD",
-            "SHEESH"
-        ]
-        
-        if random.random() < 0.3:
-            result += f"\n\n{random.choice(endings)} {random.choice(emojis)}{random.choice(emojis)}"
-        
-        await ctx.send(result)
-
-    @commands.command()
-    async def ascii(self, ctx, *, text: str):
-        """Convert text to ASCII art"""
-        if len(text) > 50:
-            await ctx.send("Text too long!")
-            return
-            
-        ascii_art = pyfiglet.figlet_format(text)
-        await ctx.send(f"```\n{ascii_art}```")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
