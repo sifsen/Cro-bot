@@ -1,5 +1,6 @@
 import random
 import json
+import pyfiglet
 import discord
 from datetime import datetime, timedelta
 from typing import Union
@@ -1319,6 +1320,16 @@ class Fun(commands.Cog):
             result += f"\n\n{random.choice(endings)} {random.choice(emojis)}{random.choice(emojis)}"
         
         await ctx.send(result)
+
+    @commands.command()
+    async def ascii(self, ctx, *, text: str):
+        """Convert text to ASCII art"""
+        if len(text) > 50:
+            await ctx.send("Text too long!")
+            return
+            
+        ascii_art = pyfiglet.figlet_format(text)
+        await ctx.send(f"```\n{ascii_art}```")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
