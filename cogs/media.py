@@ -75,7 +75,7 @@ class Images(commands.Cog):
                     draw.fill_color = Color('black')
                     
                     x = img.width // 2
-                    y = int(padding + (font_size * 0.8))
+                    y = int(padding + (font_size * 0.9))
                     draw.text(x, y, text.upper())
                     draw(caption)
                 
