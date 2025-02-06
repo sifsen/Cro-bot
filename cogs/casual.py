@@ -59,8 +59,8 @@ class Casual(commands.Cog):
     #################################
     ## User Info Command
     #################################
-    @commands.command()
-    async def userinfo(self, ctx, member: discord.Member = None):
+    @commands.command(aliases=["userinfo"])
+    async def profile(self, ctx, member: discord.Member = None):
         """Get detailed info about a user"""
         member = member or ctx.author
         
