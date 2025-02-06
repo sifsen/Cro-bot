@@ -208,7 +208,7 @@ class Twitch(commands.Cog):
             streamers_list.append(f"• {streamer} {' '.join(roles)}")
 
         embed.add_field(
-            name="Tracked Streamers",
+            name="Tracked streamers",
             value='\n'.join(streamers_list) if streamers_list else "No streamers added",
             inline=False
         )
