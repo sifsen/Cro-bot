@@ -24,6 +24,8 @@ class ServerSettings:
             'twitch': {
                 'notifications_channel': None,
                 'streamers': {},
+                'last_notifications': {},
+                'notification_messages': {}
             }
         }
 

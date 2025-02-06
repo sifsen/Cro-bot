@@ -13,8 +13,6 @@ class Twitch(commands.Cog):
         self.twitch_client_secret = TWITCH_CLIENT_SECRET
         self.access_token = None
         self.check_streams.start()
-        self.last_notifications = {}
-        self.notification_messages = {}
 
     def cog_unload(self):
         self.check_streams.cancel()
@@ -86,6 +84,9 @@ class Twitch(commands.Cog):
             if not settings.get('twitch', {}).get('streamers'):
                 continue
 
+            last_notifications = settings['twitch'].get('last_notifications', {})
+            notification_messages = settings['twitch'].get('notification_messages', {})
+
             channel_id = settings['twitch'].get('notifications_channel')
             if not channel_id:
                 continue
@@ -100,7 +101,7 @@ class Twitch(commands.Cog):
                     message_key = f"{guild.id}-{streamer}"
                     
                     if stream_info:
-                        last_notification = self.last_notifications.get(message_key)
+                        last_notification = last_notifications.get(message_key)
                         stream_start = datetime.strptime(stream_info['started_at'], '%Y-%m-%dT%H:%M:%SZ')
                         
                         if not last_notification or last_notification < stream_start:
@@ -140,16 +141,18 @@ class Twitch(commands.Cog):
 
                             view = self.WatchStreamButton(stream_url)
                             sent_message = await channel.send(message, embed=embed, view=view)
-                            self.last_notifications[message_key] = stream_start
-                            self.notification_messages[message_key] = sent_message.id
+                            
+                            settings['twitch']['last_notifications'][message_key] = stream_start.isoformat()
+                            settings['twitch']['notification_messages'][message_key] = sent_message.id
+                            self.bot.settings.set_server_setting(guild.id, 'twitch', settings['twitch'])
 
-                    elif message_key in self.notification_messages:
+                    elif message_key in notification_messages:
                         try:
-                            message_id = self.notification_messages[message_key]
+                            message_id = notification_messages[message_key]
                             message = await channel.fetch_message(message_id)
                             
                             if message:
-                                stream_start = self.last_notifications[message_key]
+                                stream_start = last_notifications[message_key]
                                 stream_url = f"https://twitch.tv/{streamer}"
                                 
                                 embed = message.embeds[0]
@@ -160,12 +163,14 @@ class Twitch(commands.Cog):
                                 view = self.WatchStreamButton(stream_url)
                                 await message.edit(content=new_content, embed=embed, view=view)
                                 
-                                del self.notification_messages[message_key]
-                                del self.last_notifications[message_key]
+                                settings['twitch']['last_notifications'].pop(message_key, None)
+                                settings['twitch']['notification_messages'].pop(message_key, None)
+                                self.bot.settings.set_server_setting(guild.id, 'twitch', settings['twitch'])
                                 
                         except (discord.NotFound, discord.HTTPException):
-                            self.notification_messages.pop(message_key, None)
-                            self.last_notifications.pop(message_key, None)
+                            notification_messages.pop(message_key, None)
+                            last_notifications.pop(message_key, None)
+                            self.bot.settings.set_server_setting(guild.id, 'twitch', settings['twitch'])
 
                 except Exception as e:
                     print(f"Error checking stream {streamer}: {e}")
