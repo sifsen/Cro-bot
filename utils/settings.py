@@ -26,6 +26,12 @@ class ServerSettings:
                 'streamers': {},
                 'last_notifications': {},
                 'notification_messages': {}
+            },
+            'youtube': {
+                'notifications_channel': None,
+                'channels': {},
+                'last_videos': {},
+                'ping_role': None
             }
         }
 
