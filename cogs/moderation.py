@@ -101,12 +101,12 @@ class Moderation(commands.Cog):
                 return
 
             embed = discord.Embed(
-                title=f"Member Records | Page 1/1",
+                title=f"Member records | Page 1/1",
                 color=0x2B2D31,
                 timestamp=datetime.utcnow()
             )
             
-            embed.description = f"**{user.name}**\nMention: {user.mention}\n```javascript\nID: {user.id}```\n**Total Records:** {len(user_data['case_ids'])}"
+            embed.description = f"**{user.name}**\nMention: {user.mention}\n```javascript\nID: {user.id}```\n**Total records:** {len(user_data['case_ids'])}"
             embed.set_thumbnail(url=user.display_avatar.url)
 
             cases = guild_records.get('cases', {})
@@ -120,7 +120,7 @@ class Moderation(commands.Cog):
                 record = cases[case_id]
                 action_time = datetime.fromisoformat(record['timestamp'])
                 moderator = ctx.guild.get_member(record['mod_id'])
-                mod_name = moderator.name if moderator else "Unknown Moderator"
+                mod_name = moderator.name if moderator else "Unknown moderator"
 
                 embed.add_field(
                     name=f"**{record['action']}**",
@@ -171,12 +171,12 @@ class Moderation(commands.Cog):
             
             embed = discord.Embed(
                 title=f"Case updated",
-                description=f"**Case:** {case_id}\n**Action:** {case['action']}\n**Target:** {user.mention}\n**New Reason:** {new_reason}",
+                description=f"**Case:** {case_id}\n**Action:** {case['action']}\n**Target:** {user.mention}\n**New reason:** {new_reason}",
                 color=discord.Color.blue(),
                 timestamp=datetime.utcnow()
             )
-            embed.add_field(name="Original Moderator", value=mod.mention if mod else "Unknown")
-            embed.add_field(name="Edited By", value=ctx.author.mention)
+            embed.add_field(name="Original moderator", value=mod.mention if mod else "Unknown")
+            embed.add_field(name="Edited by", value=ctx.author.mention)
             
             await ctx.send("Done 👍")
             
@@ -212,7 +212,7 @@ class Moderation(commands.Cog):
 
                 await member.kick(reason=reason)
                 await self.logger.log_action(ctx, "Kick", member, reason)
-                await confirm_message.edit(content=f"{member.mention} has been kicked.", view=None)
+                await confirm_message.edit(content=f"**{member.name}** has been kicked.", view=None)
                 await interaction.response.defer()
 
             async def cancel_callback(interaction):
@@ -220,7 +220,7 @@ class Moderation(commands.Cog):
                     await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
                     return
 
-                await confirm_message.edit(content="Kick command cancelled.", view=None)
+                await confirm_message.edit(content="Guess not then.", view=None)
                 await interaction.response.defer()
 
             confirm_button.callback = confirm_callback
@@ -228,10 +228,10 @@ class Moderation(commands.Cog):
             confirm_view.add_item(confirm_button)
             confirm_view.add_item(cancel_button)
 
-            confirm_message = await ctx.send(f"Are you sure you want to kick {member.mention}?", view=confirm_view)
+            confirm_message = await ctx.send(f"Are you sure you want to kick **{member.name}**?", view=confirm_view)
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to kick that member!")
+            await ctx.send("I don't have permission to kick that user!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -254,7 +254,7 @@ class Moderation(commands.Cog):
 
             async def confirm_callback(interaction):
                 if interaction.user != ctx.author:
-                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
 
                 await member.ban(reason=reason)
@@ -265,12 +265,12 @@ class Moderation(commands.Cog):
                     strings = json.load(f)
                     action = random.choice(strings['user_was_x'])
                 
-                await confirm_message.edit(content=f"{member.mention} was {action}", view=None)
+                await confirm_message.edit(content=f"**{member.name}** was {action}", view=None)
                 await interaction.response.defer()
 
             async def cancel_callback(interaction):
                 if interaction.user != ctx.author:
-                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
 
                 await confirm_message.edit(content="Guess not then.", view=None)
@@ -278,7 +278,7 @@ class Moderation(commands.Cog):
 
             async def compromised_callback(interaction):
                 if interaction.user != ctx.author:
-                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
 
                 try:
@@ -304,7 +304,7 @@ class Moderation(commands.Cog):
                     await asyncio.sleep(2)
                     await ctx.guild.unban(member)
                     
-                    await interaction.message.edit(f"{member.mention} was banned for compromised account.")
+                    await interaction.message.edit(f"**{member.name}** was banned for compromised account.")
                 except Exception as e:
                     await interaction.message.edit(f"Error handling compromised account: {str(e)}")
 
@@ -315,10 +315,11 @@ class Moderation(commands.Cog):
             confirm_view.add_item(cancel_button)
             confirm_view.add_item(compromised_button)
 
-            confirm_message = await ctx.reply(f"Are you sure you want to ban {member.global_name}?", view=confirm_view)
+            confirm_message = await ctx.reply(f"Are you sure you want to ban **{member.name}**?", view=confirm_view)
+
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to ban that member!")
+            await ctx.send("I don't have permission to ban that user!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -351,10 +352,10 @@ class Moderation(commands.Cog):
 
             await ctx.guild.unban(user)
             await self.logger.log_action(ctx, "Unban", user, "No reason provided")
-            await ctx.send(f"{user.mention} has been unbanned.")
-            
+            await ctx.send(f"**{user.name}** has been unbanned.")
+
         except discord.Forbidden:
-            await ctx.send("I don't have permission to unban members!")
+            await ctx.send("I don't have permission to unban users!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -388,10 +389,10 @@ class Moderation(commands.Cog):
 
             await member.timeout(discord.utils.utcnow() + timedelta(seconds=duration), reason=reason)
             await self.logger.log_action(ctx, "Timeout", member, f"{time} - {reason if reason else 'No reason provided'}")
-            await ctx.send(f"{member.mention} has been timed out for {time}")
+            await ctx.send(f"**{member.name}** has been timed out for **{time}**")
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to timeout that member!")
+            await ctx.send("I don't have permission to timeout that user!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -423,10 +424,10 @@ class Moderation(commands.Cog):
                 await member.timeout(None, reason=reason)
 
             await self.logger.log_action(ctx, "Unmute", member, reason or "No reason provided")
-            await ctx.send(f"{member.mention} has been unmuted.")
+            await ctx.send(f"**{member.name}** has been unmuted.")
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to unmute that member!")
+            await ctx.send("I don't have permission to unmute that user!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -499,10 +500,10 @@ class Moderation(commands.Cog):
 
             if role in member.roles:
                 await member.remove_roles(role)
-                await ctx.send(f"Removed role **{role.name}** from {member.name}")
+                await ctx.send(f"Removed role **{role.name}** from **{member.name}**")
             else:
                 await member.add_roles(role)
-                await ctx.send(f"Added role **{role.name}** to {member.name}")
+                await ctx.send(f"Added role **{role.name}** to **{member.name}**")
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to manage roles.")
@@ -595,13 +596,13 @@ class Moderation(commands.Cog):
                 channel = ctx.guild.get_channel(int(mod_audit_channel_id))
                 if channel:
                     embed = discord.Embed(
-                        title="Bulk Messages Deleted",
+                        title="Bulk messages deleted",
                         description=f"**Channel:** {ctx.channel.mention}\n**Amount:** {len(deleted) - 1}\n**Moderator:** {ctx.author.mention}",
                         color=discord.Color.red(),
                         timestamp=datetime.utcnow()
                     )
                     if flags:
-                        embed.add_field(name="Filters Used", value=f"```{flags}```")
+                        embed.add_field(name="Filters used", value=f"```{flags}```")
                     await channel.send(embed=embed)
 
         except discord.Forbidden:
@@ -629,7 +630,7 @@ class Moderation(commands.Cog):
                         return
                     
             await self.logger.log_action(ctx, "Note", user, note)
-            await ctx.send(f"Added note to {user.mention}'s record.")
+            await ctx.send(f"Added note to **{user.name}**'s record.")
 
         except discord.NotFound:
             await ctx.send("Could not find that user.")
@@ -697,7 +698,7 @@ class Moderation(commands.Cog):
                 return
             
             await self.logger.log_action(ctx, "Warning", member, reason)
-            await ctx.reply(f"Warned {member.mention}" + (f" for: {reason}" if reason else ""))
+            await ctx.reply(f"Warned **{member.name}**" + (f" for: **{reason}**" if reason else ""))
 
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
