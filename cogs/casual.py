@@ -46,7 +46,7 @@ class Casual(commands.Cog):
     @commands.command()
     async def invite(self, ctx):
         """Invite Kael to your server"""
-        await ctx.send("Click [this link](https://discord.com/oauth2/authorize?client_id=1293508738036142091) to invite me to your server!")
+        await ctx.send("You can click on my profile, or click [this link](https://discord.com/oauth2/authorize?client_id=1293508738036142091) to invite me to your server!")
 
     #################################
     ## Ping Command
@@ -74,7 +74,7 @@ class Casual(commands.Cog):
         
         embed.set_thumbnail(url=member.display_avatar.url)
         
-        embed.add_field(name="ID", value=f"```{member.id}```", inline=False)
+        embed.add_field(name="", value=f"```ID: {member.id}```", inline=False)
         embed.add_field(
             name="Created at",
             value=discord.utils.format_dt(member.created_at, 'F'),
