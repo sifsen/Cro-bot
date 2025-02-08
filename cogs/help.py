@@ -20,10 +20,33 @@ class Help(commands.Cog):
                 color=0x2B2D31
             )
             
+            signature = f"{ctx.prefix}{command.name} {command.signature}"
+            embed.add_field(
+                name="Usage",
+                value=f"```\n{signature}\n```",
+                inline=False
+            )
+            
             if command.aliases:
+                aliases = [f"{ctx.prefix}{alias}" for alias in command.aliases]
                 embed.add_field(
-                    name="Aliases",
-                    value=", ".join(f"`{alias}`" for alias in command.aliases),
+                    name="Alias(es)",
+                    value=f"```\n{', '.join(aliases)}\n```",
+                    inline=False
+                )
+            
+            checks = []
+            for check in command.checks:
+                if 'has_permissions' in str(check):
+                    perms = str(check).split('has_permissions(')[1].split(')')[0]
+                    checks.append(f"permissions.{perms}")
+                elif 'has_role' in str(check):
+                    checks.append("roles.staff")
+            
+            if checks:
+                embed.add_field(
+                    name="Check(s)",
+                    value=f"```\n{chr(10).join(checks)}\n```",
                     inline=False
                 )
             
@@ -33,13 +56,14 @@ class Help(commands.Cog):
         embed = discord.Embed(
             title="You asked for help?",
             description=(
-                "**[Full Documentation](https://sen.wtf/docs/Kael)**\n\n"
+                "**[Full Documentation](https://sen.wtf/i/Kael)**\n\n"
                 "**Key Features**\n"
                 "• Comprehensive logging system\n"
                 "• Advanced moderation tools\n"
                 "• Custom tag system\n"
                 "• Reminder functionality\n"
                 "• Starboard support\n"
+
                 "• AutoMod capabilities\n\n"
                 "**Common commands**\n"
                 "• `%help <command>` - Detailed command help\n"
