@@ -38,7 +38,14 @@ class EventHandlers(commands.Cog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
-            return # niks doen als de command niet bestaat
+            embed = discord.Embed(
+                title="Unknown Command",
+                description=f"Type `` {ctx.prefix}commands `` for a list of commands.",
+                color=0xFF0000
+            )
+            await ctx.send(embed=embed)
+
+            return
         
         if isinstance(error, commands.MissingPermissions):
             perms = ', '.join(error.missing_permissions)
@@ -47,18 +54,25 @@ class EventHandlers(commands.Cog):
         
         if isinstance(error, commands.BotMissingPermissions):
             perms = ', '.join(error.missing_permissions)
-            await ctx.send(f"I can't do that.\nI need the `{perms}` permission.")
-            return
-        
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(f"Please provide the `{error.param.name}` argument.")
-            return
-        
-        if isinstance(error, commands.BadArgument):
-            await ctx.send(f"Wrong argument lol\n{str(error)}")
+            await ctx.send(f"I can't do that.\nI need the following permissions:\n```{perms}```")
             return
 
-        # log errors teehee
+        if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
+            command = ctx.command
+            
+            embed = discord.Embed(
+                title="Invalid Argument(s)",
+                description=f"See `` {ctx.prefix}help {command.name} `` for more details.",
+                color=0xFF0000
+            )
+            
+
+            signature = f"{ctx.prefix}{command.name} {command.signature}"
+            embed.add_field(name="Usage", value=f"```\n{signature}\n```")
+            
+            await ctx.send(embed=embed)
+            return
+
         print(f"Error in {ctx.command}: {str(error)}")
         await ctx.send("An unexpected error occurred. Tag my dev if it persists.")
 
