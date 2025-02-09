@@ -60,12 +60,7 @@ class EventHandlers(commands.Cog):
             if content.strip() in expressions or all(c in '?!.' for c in content.strip()):
                 return
             
-            embed = discord.Embed(
-                title="Unknown Command",
-                description=f"Type `{ctx.prefix}commands` for a list of commands.",
-                color=0xFF0000
-            )
-            await ctx.send(embed=embed)
+            await ctx.send(f"**Unknown command**.\nType `{ctx.prefix}help` for a list of commands.")
             return
 
         if isinstance(error, commands.MissingPermissions):
