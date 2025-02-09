@@ -16,26 +16,11 @@ class Admin(commands.Cog):
         return ctx.author.guild_permissions.administrator
 
     #################################
-    ## Nickname Command
-    #################################
-    @commands.command(aliases=['nick'])
-    @PermissionHandler.has_permissions(manage_nicknames=True)
-    async def nickname(self, ctx, member: discord.Member, *, new_nick=None):
-        """Change a member's nickname"""
-        try:
-            old_nick = member.nick or member.name
-            await member.edit(nick=new_nick)
-            await ctx.send(f"Changed {member.mention}'s nickname from **{old_nick}** to **{new_nick}**")
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to change nicknames.")
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
-
-    #################################
     ## Config Command
     #################################
     @commands.command()
     @PermissionHandler.has_permissions(administrator=True)
+
     async def config(self, ctx, setting=None, *, value=None):
         """Configure server settings"""
         if not setting:
