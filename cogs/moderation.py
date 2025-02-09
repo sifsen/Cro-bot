@@ -703,5 +703,22 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
+    #################################
+    ## Nickname Command
+    #################################
+    @commands.command(aliases=['nick'])
+    async def nickname(self, ctx: commands.Context, member: discord.Member, *, new_nick: str = None):
+        """Change a member's nickname"""
+        old_nick = member.display_name
+        
+        try:
+            await member.edit(nick=new_nick)
+            if new_nick is None:
+                await ctx.send(f"Reset **{member.name}**'s nickname")
+            else:
+                await ctx.send(f"Changed **{member.name}**'s nickname from **{old_nick}** to **{new_nick}**")
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to change that user's nickname")
+
 async def setup(bot):
     await bot.add_cog(Moderation(bot))
