@@ -13,7 +13,9 @@ class Twitch(commands.Cog):
         self.twitch_client_secret = TWITCH_CLIENT_SECRET
         self.access_token = None
         self.check_streams.start()
-
+        self.stream_cooldowns = {}
+        self.STREAM_COOLDOWN = 14400
+        
     def cog_unload(self):
         self.check_streams.cancel()
 
@@ -78,21 +80,11 @@ class Twitch(commands.Cog):
     @tasks.loop(minutes=2)
     async def check_streams(self):
         """Check if tracked streamers are live or ended"""
+        current_time = datetime.now(timezone.utc)
 
         for guild in self.bot.guilds:
             settings = self.bot.settings.get_all_server_settings(guild.id)
             if not settings.get('twitch', {}).get('streamers'):
-                continue
-
-            last_notifications = settings['twitch'].get('last_notifications', {})
-            notification_messages = settings['twitch'].get('notification_messages', {})
-
-            channel_id = settings['twitch'].get('notifications_channel')
-            if not channel_id:
-                continue
-
-            channel = guild.get_channel(int(channel_id))
-            if not channel:
                 continue
 
             for streamer, streamer_data in settings['twitch']['streamers'].items():
@@ -100,6 +92,12 @@ class Twitch(commands.Cog):
                     stream_info = await self.get_stream_info(streamer)
                     message_key = f"{guild.id}-{streamer}"
                     
+                    cooldown_key = f"{streamer}-{guild.id}"
+                    last_notification = self.stream_cooldowns.get(cooldown_key)
+                    
+                    if last_notification and (current_time - last_notification).total_seconds() < self.STREAM_COOLDOWN:
+                        continue
+
                     if stream_info:
                         last_notification = last_notifications.get(message_key)
                         stream_start = datetime.strptime(stream_info['started_at'], '%Y-%m-%dT%H:%M:%SZ')
@@ -146,6 +144,8 @@ class Twitch(commands.Cog):
                             settings['twitch']['notification_messages'][message_key] = sent_message.id
                             self.bot.settings.set_server_setting(guild.id, 'twitch', settings['twitch'])
 
+                            self.stream_cooldowns[cooldown_key] = current_time
+
                     elif message_key in notification_messages:
                         try:
                             message_id = notification_messages[message_key]
@@ -167,6 +167,8 @@ class Twitch(commands.Cog):
                                 settings['twitch']['notification_messages'].pop(message_key, None)
                                 self.bot.settings.set_server_setting(guild.id, 'twitch', settings['twitch'])
                                 
+                                self.stream_cooldowns.pop(cooldown_key, None)
+
                         except (discord.NotFound, discord.HTTPException):
                             notification_messages.pop(message_key, None)
                             last_notifications.pop(message_key, None)
