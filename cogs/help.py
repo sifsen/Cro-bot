@@ -14,92 +14,26 @@ class Help(commands.Cog):
                 await ctx.send("That command doesn't exist!")
                 return
                 
-            embed = discord.Embed(
-                title=f"Command: {command.name}",
-                description=command.help or "No description available",
-                color=0x2B2D31
-            )
-            
             signature = f"{ctx.prefix}{command.name} {command.signature}"
-            embed.add_field(
-                name="Usage",
-                value=f"```\n{signature}\n```",
-                inline=False
-            )
-            
-            if command.aliases:
-                aliases = [f"{ctx.prefix}{alias}" for alias in command.aliases]
-                embed.add_field(
-                    name="Alias(es)",
-                    value=f"```\n{', '.join(aliases)}\n```",
-                    inline=False
-                )
-            
-            checks = []
-            for check in command.checks:
-                if 'has_permissions' in str(check):
-                    perms = str(check).split('has_permissions(')[1].split(')')[0]
-                    checks.append(f"permissions.{perms}")
-                elif 'has_role' in str(check):
-                    checks.append("roles.staff")
-            
-            if checks:
-                embed.add_field(
-                    name="Check(s)",
-                    value=f"```\n{chr(10).join(checks)}\n```",
-                    inline=False
-                )
-            
-            await ctx.send(embed=embed)
+            await ctx.send(f"**{command.name}**\n{command.help or 'No description available'}\n\nUsage: `{signature}`")
             return
             
-        embed = discord.Embed(
-            title="You asked for help?",
-            description=(
-                "**[Full Documentation](https://sen.wtf/i/Kael)**\n\n"
-                "**Key Features**\n"
-                "• Comprehensive logging system\n"
-                "• Advanced moderation tools\n"
-                "• Custom tag system\n"
-                "• Reminder functionality\n"
-                "• Starboard support\n"
+        await ctx.send(
+            "**You asked for help?**\n"
+            "Default prefixes: `%`, `$`, `!`, `?`, `.`\n"
+            "Set custom prefix with `config prefix <prefix>`\n\n"
+            "**Quick Tips**\n"
+            "- `help <command>` - Detailed command help\n"
+            "- `commands` - List all commands\n"
+            "- `tag` - Use custom tags/commands\n"
+            "- `remindme` - Set reminders\n"
+            "- `automod` - Auto-moderate messages\n"
+            "- `config` - Server settings\n\n"
+            "**Links**\n"
+            "- [Documentation](https://sen.wtf/docs/Cro)\n"
+            "- [Repository](<https://github.com/CursedSen/Cro-bot>)"
 
-                "• AutoMod capabilities\n\n"
-                "**Common commands**\n"
-                "• `%help <command>` - Detailed command help\n"
-                "• `%commands` - List all commands\n"
-                "• `%tag` - Use custom tags\n"
-                "• `%remindme` - Set reminders\n\n"
-                "**Useful Links**\n"
-                "• [Documentation](https://sen.wtf/docs/Kael)\n"
-                "• [Source Code](https://github.com/CursedSen/Kael-bot/)\n"
-            ),
-            color=0x2B2D31
         )
-        
-        if ctx.author.guild_permissions.administrator:
-            setup_guide = (
-                "**Quicksetup guide**\n"
-                "1. Set logging channels: ` config joinleave/modaudit/edits/deletions/profiles `\n"
-                "2. Set staff roles: ` config modrole/adminrole `\n"
-                "3. Optional: Configure starboard with ` config starboard/starthreshold `\n"
-                "4. Optional: Set custom prefix with ` config prefix `\n\n"
-                "**Admin commands**\n"
-                "• ` %config ` - View and modify settings\n"
-                "• ` %automod ` - Configure AutoMod\n"
-                "• ` %toggle_prefix ` - Toggle default prefixes\n\n"
-                "**Admin Tips**\n"
-                "• Set up logging channels first for best experience\n"
-                "• Configure AutoMod to help with moderation\n"
-                "• Use tags for custom commands/responses\n"
-                "• Check documentation for detailed setup guides"
-            )
-            embed.add_field(name="Admin setup", value=setup_guide, inline=False)
-        
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
-            
-        await ctx.send(embed=embed)
 
     @commands.command()
     async def commands(self, ctx):
