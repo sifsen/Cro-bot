@@ -1,3 +1,5 @@
+# THESE ARE NOW PARKED
+
 import discord
 from discord.ext import commands, tasks
 import aiohttp
@@ -15,7 +17,7 @@ class Twitch(commands.Cog):
         self.check_streams.start()
         self.stream_cooldowns = {}
         self.STREAM_COOLDOWN = 14400
-        
+
     def cog_unload(self):
         self.check_streams.cancel()
 
