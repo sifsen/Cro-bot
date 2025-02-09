@@ -38,15 +38,36 @@ class EventHandlers(commands.Cog):
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.CommandNotFound):
+            prefixes = await self.bot.get_prefix(ctx.message)
+            content = ctx.message.content
+            
+            used_prefix = None
+            for prefix in prefixes:
+                if content.startswith(prefix):
+                    used_prefix = prefix
+                    break
+                
+            if not used_prefix:
+                return
+            
+            while content.startswith(used_prefix):
+                content = content[len(used_prefix):]
+            
+            if not content or content.isspace():
+                return
+            
+            expressions = ['?', '!', '.', '...', '????', '!!!!', '....']
+            if content.strip() in expressions or all(c in '?!.' for c in content.strip()):
+                return
+            
             embed = discord.Embed(
                 title="Unknown Command",
-                description=f"Type `` {ctx.prefix}commands `` for a list of commands.",
+                description=f"Type `{ctx.prefix}commands` for a list of commands.",
                 color=0xFF0000
             )
             await ctx.send(embed=embed)
-
             return
-        
+
         if isinstance(error, commands.MissingPermissions):
             perms = ', '.join(error.missing_permissions)
             await ctx.send(f"You can't do that.")
@@ -62,11 +83,10 @@ class EventHandlers(commands.Cog):
             
             embed = discord.Embed(
                 title="Invalid Argument(s)",
-                description=f"See `` {ctx.prefix}help {command.name} `` for more details.",
+                description=f"See `{ctx.prefix}help {command.name}` for more details.",
                 color=0xFF0000
             )
             
-
             signature = f"{ctx.prefix}{command.name} {command.signature}"
             embed.add_field(name="Usage", value=f"```\n{signature}\n```")
             
