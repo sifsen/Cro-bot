@@ -1,12 +1,13 @@
 import discord
-
-from utils.helpers import PermissionHandler
-from discord.ext import commands
-from datetime import datetime
 import io
 import contextlib
 import textwrap
 import traceback
+from datetime import datetime
+
+from utils.permissions.handler import PermissionHandler
+from utils.helpers.formatting import EmbedBuilder, TextFormatter
+from discord.ext import commands
 
 class Admin(commands.Cog):
     def __init__(self, bot):
@@ -20,179 +21,103 @@ class Admin(commands.Cog):
     #################################
     @commands.command()
     @PermissionHandler.has_permissions(administrator=True)
-
     async def config(self, ctx, setting=None, *, value=None):
         """Configure server settings"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        
         if not setting:
-            settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
-            
             embed = discord.Embed(
                 title="Server Configuration",
-                color=discord.Color.dark_theme()
+                color=discord.Color.blue()
             )
             
             if ctx.guild.icon:
                 embed.set_thumbnail(url=ctx.guild.icon.url)
 
-            log_channels = [
-                f"• Join/Leave: {ctx.guild.get_channel(settings.get('log_channel_join_leave')).mention if settings.get('log_channel_join_leave') else '`Not Set`'}",
-                f"• Mod Audit: {ctx.guild.get_channel(settings.get('log_channel_mod_audit')).mention if settings.get('log_channel_mod_audit') else '`Not Set`'}",
-                f"• Edits: {ctx.guild.get_channel(settings.get('log_channel_edits')).mention if settings.get('log_channel_edits') else '`Not Set`'}",
-                f"• Deletions: {ctx.guild.get_channel(settings.get('log_channel_deletions')).mention if settings.get('log_channel_deletions') else '`Not Set`'}",
-                f"• Profiles: {ctx.guild.get_channel(settings.get('log_channel_profiles')).mention if settings.get('log_channel_profiles') else '`Not Set`'}"
-            ]
-
-            staff_roles = [
-                f"• Mod Role: {ctx.guild.get_role(settings.get('mod_role')).mention if settings.get('mod_role') else '`Not Set`'}",
-                f"• Admin Role: {ctx.guild.get_role(settings.get('admin_role')).mention if settings.get('admin_role') else '`Not Set`'}"
-            ]
-
-            starboard = [
-                f"• Channel: {ctx.guild.get_channel(settings.get('starboard_channel')).mention if settings.get('starboard_channel') else '`Not Set`'}",
-                f"• Threshold: {settings.get('starboard_threshold', '`Not Set`')} ⭐"
-            ]
-            
-            description = [
-                "**Logging Channels**",
-                "\n".join(log_channels),
-                "",
-                "**Staff Roles**",
-                "\n".join(staff_roles),
-                "",
-                "**Starboard**",
-                "\n".join(starboard),
-                "",
-                "**Available Settings**",
-                "`joinleave` `modaudit` `edits` `deletions` `profiles`",
-                "`modrole` `adminrole` `starboard` `starthreshold`",
-                "",
-                "*Use `config <setting> <value>` to modify settings*"
-            ]
-            
-            embed.description = "\n".join(description)
-            embed.set_footer(text=f"{ctx.guild.name}")
+            for key, value in settings.items():
+                if key.startswith('log_channel_'):
+                    channel = ctx.guild.get_channel(value) if value else None
+                    embed.add_field(
+                        name=key.replace('log_channel_', '').replace('_', ' ').title(),
+                        value=channel.mention if channel else '`Not Set`',
+                        inline=True
+                    )
+                    
             await ctx.send(embed=embed)
             return
 
-        setting_map = {
-            "joinleave": "log_channel_join_leave",
-            "modaudit": "log_channel_mod_audit",
-            "edits": "log_channel_edits",
-            "deletions": "log_channel_deletions",
-            "profiles": "log_channel_profiles",
-            "modrole": "mod_role",
-            "adminrole": "admin_role",
-            "starboard": "starboard_channel",
-            "starthreshold": "starboard_threshold",
-            "prefix": "prefix"
-        }
-
-        if setting.lower() not in setting_map:
-            await ctx.send("Invalid setting. Use `$config` to see available settings.")
+        if setting in ['messages', 'profiles', 'mod_audit', 'join_leave']:
+            setting = f'log_channel_{setting}'
+        
+        if setting not in settings:
+            await ctx.send(f"Unknown setting: `{setting}`")
             return
 
-        setting_key = setting_map[setting.lower()]
-
-        if not value or value.lower() in ['none', 'clear']:
-            self.bot.settings.set_server_setting(ctx.guild.id, setting_key, None)
-            await ctx.send(f"Cleared {setting} setting.")
+        if value and value.lower() == 'none':
+            self.bot.settings.set_server_setting(ctx.guild.id, setting, None)
+            await ctx.send(f"Cleared setting: `{setting}`")
             return
+            
+        if ctx.message.channel_mentions:
+            channel = ctx.message.channel_mentions[0]
+            self.bot.settings.set_server_setting(ctx.guild.id, setting, channel.id)
+            await ctx.send(f"Set `{setting}` to {channel.mention}")
+        else:
+            await ctx.send("Please mention a channel to set.")
 
-        if setting_key.startswith('log_channel_') or setting_key == 'starboard_channel':
-            try:
-                channel_id = int(''.join(filter(str.isdigit, value)))
-                channel = ctx.guild.get_channel(channel_id)
-                if not channel:
-                    await ctx.send("Please provide a valid channel mention or ID.")
-                    return
-                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, channel.id)
-                await ctx.send(f"Set {setting} channel to {channel.mention}")
-            except ValueError:
-                await ctx.send("Please provide a valid channel mention or ID.")
-                return
-
-        elif setting_key.endswith('_role'):
-            try:
-                role_id = int(''.join(filter(str.isdigit, value)))
-                role = ctx.guild.get_role(role_id)
-                if not role:
-                    await ctx.send("Please provide a valid role mention or ID.")
-                    return
-                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, role.id)
-                await ctx.send(f"Set {setting} to {role.mention}")
-            except ValueError:
-                await ctx.send("Please provide a valid role mention or ID.")
-                return
-
-        elif setting_key == 'starboard_threshold':
-            try:
-                threshold = int(value)
-                if threshold < 1:
-                    await ctx.send("Threshold must be at least 1.")
-                    return
-                self.bot.settings.set_server_setting(ctx.guild.id, setting_key, threshold)
-                await ctx.send(f"Set starboard threshold to {threshold}⭐")
-            except ValueError:
-                await ctx.send("Please provide a valid number for the threshold.")
-                return
-
-        elif setting_key == 'prefix':
-            if len(value) > 3:
-                await ctx.send("Prefix must be 3 characters or less!")
-                return
-            self.bot.settings.set_server_setting(ctx.guild.id, setting_key, value)
-            await ctx.send(f"Set custom prefix to `{value}`")
-
-    @commands.command(name='exe')
-    @commands.is_owner()
-    async def execute_code(self, ctx, *, code: str):
-        """Execute Python code"""
-        await ctx.message.delete()
-        
-        if code.startswith('```python'):
-            code = code[9:]
-        elif code.startswith('```py'):
-            code = code[5:]
-        elif code.startswith('```'):
-            code = code[3:]
-        if code.endswith('```'):
-            code = code[:-3]
-        
+    #################################
+    ## Eval Command
+    #################################
+    @commands.command(name='eval')
+    @PermissionHandler.is_bot_master()
+    async def _eval(self, ctx, *, code):
+        """Evaluates Python code"""
         env = {
-            'bot': self.bot,
             'ctx': ctx,
-            'discord': discord,
-            'commands': commands,
+            'bot': self.bot,
             'channel': ctx.channel,
             'author': ctx.author,
             'guild': ctx.guild,
-            'message': ctx.message
+            'message': ctx.message,
+            'discord': discord
         }
 
         env.update(globals())
         
-        wrapped_code = (
-            'async def _execute():\n' +
-            textwrap.indent(code, '    ')
-        )
-
+        if code.startswith('```') and code.endswith('```'):
+            code = '\n'.join(code.split('\n')[1:-1])
+            
+        code = TextFormatter.clean_text(code)
+        
         stdout = io.StringIO()
         
         try:
-            exec(wrapped_code, env)
             with contextlib.redirect_stdout(stdout):
-                await env['_execute']()
-                
+                exec(f'async def func():\n{textwrap.indent(code, "  ")}', env)
+                obj = await env['func']()
+                result = f'{stdout.getvalue()}\n-- {obj}\n'
         except Exception as e:
-            error = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-            if len(error) > 1990:
-                error = error[:1990] + "..."
-            await ctx.author.send(f"```py\n{error}\n```")
+            result = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            
+        embed = EmbedBuilder(
+            title="Eval result",
+            color=discord.Color.blue() if 'error' not in result.lower() else discord.Color.red()
+        ).add_field(
+            name="Input",
+            value=f"```py\n{code[:1000]}```",
+            inline=False
+        ).add_field(
+            name="Output",
+            value=f"```py\n{result[:1000]}```",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed.build())
 
     #################################
     ## Description Command
     #################################
-    @commands.command(aliases=['desc'])
+    @commands.command(aliases=['desc', 'topic', 'cd'])
     @PermissionHandler.has_permissions(manage_channels=True)
     async def description(self, ctx, *, description: str = None):
         """Change a channel's description/topic"""
@@ -215,7 +140,7 @@ class Admin(commands.Cog):
     #################################
     ## Channel Name Command
     #################################
-    @commands.command(aliases=['name'])
+    @commands.command(aliases=['name', 'cn'])
     @PermissionHandler.has_permissions(manage_channels=True)
     async def channelname(self, ctx, *, new_name: str = None):
         """Change a channel's name"""
@@ -247,9 +172,9 @@ class Admin(commands.Cog):
     #################################
     ## Toggle Prefix Command
     #################################
-    @commands.command()
+    @commands.command(aliases=['tp'])
     @commands.has_permissions(administrator=True)
-    async def toggle_prefix(self, ctx):
+    async def toggleprefix(self, ctx):
         """Toggle whether default prefixes work in this server"""
         settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
         current = settings.get('use_default_prefix', True)
@@ -286,7 +211,7 @@ class Admin(commands.Cog):
         
     @tag.command(name="create")
     @commands.has_permissions(manage_messages=True)
-    async def tag_create(self, ctx, name: str, *, content: str):
+    async def tagcreate(self, ctx, name: str, *, content: str):
         """Create a new tag"""
         settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
         tags = settings.get('tags', {})
@@ -303,8 +228,8 @@ class Admin(commands.Cog):
         self.bot.settings.set_server_setting(ctx.guild.id, 'tags', tags)
         await ctx.send(f"Tag created: `{name}`")
         
-    @tag.command(name="list")
-    async def tag_list(self, ctx):
+    @tag.command(name="tlist")
+    async def taglist(self, ctx):
         """List all tags"""
         settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
         tags = settings.get('tags', {})
@@ -315,6 +240,212 @@ class Admin(commands.Cog):
         embed = discord.Embed(title="Server Tags", color=0x2B2D31)
         embed.description = "\n".join(f"`{name}`" for name in sorted(tags.keys()))
         await ctx.send(embed=embed)
+
+    #################################
+    ## Logging Channel Commands
+    #################################
+    @commands.group(aliases=['jl'], invoke_without_command=True)
+    @PermissionHandler.has_permissions(administrator=True)
+    async def joinleave(self, ctx, channel: discord.TextChannel = None):
+        """
+        Manage join/leave logging settings
+        
+        Subcommands:
+        - view: Show current join/leave log channel
+        - disable: Disable join/leave logging
+        
+        Examples:
+        %joinleave #welcome-logs
+        %jl #member-logs
+        %joinleave view
+        %joinleave disable
+        """
+        if not channel:
+            channel = ctx.channel
+            
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_join_leave', channel.id)
+        await ctx.send(f"Join/Leave logs will be sent to {channel.mention}")
+
+    @joinleave.command(name='view')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def joinleave_view(self, ctx):
+        """View current join/leave log channel"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        channel_id = settings.get('log_channel_join_leave')
+        
+        if not channel_id:
+            await ctx.send("No join/leave log channel set")
+            return
+            
+        channel = ctx.guild.get_channel(int(channel_id))
+        if not channel:
+            await ctx.send("Join/leave log channel no longer exists!")
+            return
+            
+        await ctx.send(f"Join/leave log channel: {channel.mention}")
+
+    @joinleave.command(name='disable')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def joinleave_disable(self, ctx):
+        """Disable join/leave logging"""
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_join_leave', None)
+        await ctx.send("Join/leave logging has been disabled")
+
+    @commands.group(aliases=['ml'], invoke_without_command=True)
+    @PermissionHandler.has_permissions(administrator=True)
+    async def messagelogs(self, ctx, channel: discord.TextChannel = None):
+        """
+        Manage message logging settings
+        
+        Subcommands:
+        - view: Show current message logs channel
+        - disable: Disable message logging
+        
+        Examples:
+        %messagelogs #message-logs
+        %ml #logs
+        %messagelogs view
+        %messagelogs disable
+        """
+        if not channel:
+            channel = ctx.channel
+            
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_messages', channel.id)
+        await ctx.send(f"Message logs (edits/deletions) will be sent to {channel.mention}")
+
+    @messagelogs.command(name='view')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def messagelogsview(self, ctx):
+        """View current message logs channel"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        channel_id = settings.get('log_channel_messages')
+
+        if not channel_id:
+            await ctx.send("No message logs channel set")
+            return
+            
+        channel = ctx.guild.get_channel(int(channel_id))
+        if not channel:
+            await ctx.send("Message logs channel no longer exists!")
+            return
+            
+        await ctx.send(f"Message logs channel: {channel.mention}")
+
+    @messagelogs.command(name='disable')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def messagelogsdisable(self, ctx):
+        """Disable message logging"""
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_messages', None)
+        await ctx.send("Message logging has been disabled")
+
+    @commands.group(aliases=['ma'], invoke_without_command=True)
+    @PermissionHandler.has_permissions(administrator=True)
+    async def modaudit(self, ctx, channel: discord.TextChannel = None):
+        """
+        Manage moderation audit logging settings
+        
+        Subcommands:
+        - view: Show current mod audit log channel
+        - disable: Disable mod audit logging
+        
+        Examples:
+        %modaudit #mod-logs
+        %ma #audit-logs
+        %modaudit view
+        %modaudit disable
+        """
+        if not channel:
+            channel = ctx.channel
+            
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_mod_audit', channel.id)
+        await ctx.send(f"Moderation logs will be sent to {channel.mention}")
+
+    @modaudit.command(name='view')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def modaudit_view(self, ctx):
+        """View current mod audit log channel"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        channel_id = settings.get('log_channel_mod_audit')
+        
+        if not channel_id:
+            await ctx.send("No mod audit log channel set")
+            return
+            
+        channel = ctx.guild.get_channel(int(channel_id))
+        if not channel:
+            await ctx.send("Mod audit log channel no longer exists!")
+            return
+            
+        await ctx.send(f"Mod audit log channel: {channel.mention}")
+
+    @modaudit.command(name='disable')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def modaudit_disable(self, ctx):
+        """Disable mod audit logging"""
+        self.bot.settings.set_server_setting(ctx.guild.id, 'log_channel_mod_audit', None)
+        await ctx.send("Mod audit logging has been disabled")
+
+    @commands.group(aliases=['sb'], invoke_without_command=True)
+    @PermissionHandler.has_permissions(administrator=True)
+    async def starboard(self, ctx, channel: discord.TextChannel = None):
+        """
+        Manage starboard settings
+        
+        Subcommands:
+        - view: Show current starboard channel
+        - disable: Disable starboard
+        - limit <number>: Set minimum stars needed (default: 3)
+        
+        Examples:
+        %starboard #starboard-channel
+        %sb #highlights
+        %starboard view
+        %starboard disable
+        %starboard limit 5
+        """
+        if ctx.invoked_subcommand is None:
+            if not channel:
+                channel = ctx.channel
+                
+            self.bot.settings.set_server_setting(ctx.guild.id, 'starboard_channel', channel.id)
+            await ctx.send(f"Starboard messages will be sent to {channel.mention}")
+
+    @starboard.command(name='limit')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def starboard_limit(self, ctx, number: int):
+        """Set the minimum number of stars needed"""
+        if number < 1:
+            await ctx.send("Limit must be at least 1")
+            return
+            
+        self.bot.settings.set_server_setting(ctx.guild.id, 'starboard_threshold', number)
+        await ctx.send(f"Starboard limit set to {number} stars")
+
+    @starboard.command(name='view')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def starboard_view(self, ctx):
+        """View current starboard settings"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        channel_id = settings.get('starboard_channel')
+        threshold = settings.get('starboard_threshold', 3)
+        
+        if not channel_id:
+            await ctx.send("No starboard channel set")
+            return
+            
+        channel = ctx.guild.get_channel(int(channel_id))
+        if not channel:
+            await ctx.send("Starboard channel no longer exists!")
+            return
+            
+        await ctx.send(f"Starboard channel: {channel.mention}\nRequired stars: {threshold}")
+
+    @starboard.command(name='disable')
+    @PermissionHandler.has_permissions(administrator=True)
+    async def starboard_disable(self, ctx):
+        """Disable the starboard"""
+        self.bot.settings.set_server_setting(ctx.guild.id, 'starboard_channel', None)
+        await ctx.send("Starboard has been disabled")
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
