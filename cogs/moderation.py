@@ -10,7 +10,8 @@ import asyncio
 from utils.helpers import PermissionHandler
 from discord.ext import commands
 from datetime import datetime, timedelta
-from utils.auditlogs import ModLogger
+from utils.helpers.formatting import TextFormatter, EmbedBuilder
+from utils.helpers.time import TimeParser
 
 
 class Moderation(commands.Cog):
@@ -19,7 +20,6 @@ class Moderation(commands.Cog):
         self.mod_log_file = "data/mod_logs.json"
         self.last_case_time = 0
         self.case_counter = 0
-        self.logger = ModLogger(bot)
 
     def generate_case_id(self) -> str:
         """Generate a unique case ID based on timestamp"""
@@ -53,6 +53,7 @@ class Moderation(commands.Cog):
 
         case_id = self.generate_case_id()
         action['case_id'] = case_id
+        action['timestamp'] = datetime.utcnow().isoformat()
         
         records[guild_id]['cases'][case_id] = action
         
@@ -62,12 +63,12 @@ class Moderation(commands.Cog):
         if user_id not in records[guild_id]['users']:
             records[guild_id]['users'][user_id] = {
                 'username': f"{user.name}#{user.discriminator}" if user.discriminator != '0' else user.name,
-                'cases': []
+                'case_ids': []
             }
         else:
             records[guild_id]['users'][user_id]['username'] = f"{user.name}#{user.discriminator}" if user.discriminator != '0' else user.name
                 
-        records[guild_id]['users'][user_id]['cases'].append(case_id)
+        records[guild_id]['users'][user_id]['case_ids'].append(case_id)
 
         with open(self.mod_log_file, 'w') as f:
             json.dump(records, f, indent=2)
@@ -138,9 +139,9 @@ class Moderation(commands.Cog):
             await ctx.send(embed=embed)
 
         except FileNotFoundError:
-            await ctx.send("No moderation records exist yet.")
+            await ctx.send("No moderation records exist yet")
         except json.JSONDecodeError:
-            await ctx.send("Error reading moderation records.")
+            await ctx.send("Error reading moderation records")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
@@ -207,74 +208,132 @@ class Moderation(commands.Cog):
 
             async def confirm_callback(interaction):
                 if interaction.user != ctx.author:
-                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
 
-                await member.kick(reason=reason)
-                await self.logger.log_action(ctx, "Kick", member, reason)
-                await confirm_message.edit(content=f"**{member.name}** has been kicked.", view=None)
-                await interaction.response.defer()
+                try:
+                    await member.kick(reason=reason)
+                    
+                    case_id = await self.save_mod_action(ctx.guild.id, {
+                        'user_id': member.id,
+                        'mod_id': ctx.author.id,
+                        'action': 'Kick',
+                        'reason': reason
+                    })
+                    
+                    await self.log_mod_action(ctx, "Kicked", member, case_id, reason=reason)
+                    
+                    await ctx.send(f"**{member.name}** was kicked")
+                    await interaction.message.delete()
+                except discord.Forbidden:
+                    await ctx.send("I don't have permission to kick that user!")
+                except Exception as e:
+                    await ctx.send(f"An error occurred: {str(e)}")
 
             async def cancel_callback(interaction):
                 if interaction.user != ctx.author:
-                    await interaction.response.send_message("You cannot interact with this confirmation.", ephemeral=True)
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
-
-                await confirm_message.edit(content="Guess not then.", view=None)
-                await interaction.response.defer()
+                await interaction.message.delete()
 
             confirm_button.callback = confirm_callback
             cancel_button.callback = cancel_callback
             confirm_view.add_item(confirm_button)
             confirm_view.add_item(cancel_button)
 
-            confirm_message = await ctx.send(f"Are you sure you want to kick **{member.name}**?", view=confirm_view)
+            await ctx.send(
+                f"Are you sure you want to kick **{member.name}**?" + 
+                (f"\nReason: {reason}" if reason else ""), 
+                view=confirm_view
+            )
 
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to kick that user!")
+
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Ban Command
     #################################   
+    async def get_or_fetch_user(self, ctx, user_input: str) -> Union[discord.Member, discord.User, None]:
+        """Helper function to get a user from various input formats"""
+        user = None
+        
+        if user_input.startswith('<@') and user_input.endswith('>'):
+            user_id = int(user_input[2:-1].replace('!', ''))
+            user = ctx.guild.get_member(user_id) or await self.bot.fetch_user(user_id)
+        
+        elif user_input.isdigit():
+            user_id = int(user_input)
+            user = ctx.guild.get_member(user_id) or await self.bot.fetch_user(user_id)
+            
+        else:
+            user = discord.utils.find(
+                lambda m: str(m) == user_input or m.name == user_input,
+                ctx.guild.members
+            )
+            
+            if not user and '#' in user_input:
+                try:
+                    user = await self.bot.fetch_user(user_input)
+                except:
+                    pass
+
+        return user
+
     @commands.command(aliases=['kill'])
     @PermissionHandler.has_permissions(ban_members=True)
-    async def ban(self, ctx, member: discord.Member, *, reason=None):
-        """Ban a member from the server"""
+    async def ban(self, ctx, user_input: str, *, reason=None):
+        """Ban a user from the server (can ban users not in the server)"""
         try:
-            if member.top_role >= ctx.author.top_role:
-                await ctx.reply("You cannot ban someone with a higher or equal role!")
+            user = await self.get_or_fetch_user(ctx, user_input)
+            if not user:
+                await ctx.reply("Could not find that user. Please provide a valid user ID, mention, or username#discriminator.")
                 return
+
+            if isinstance(user, discord.Member):
+                if user.top_role >= ctx.author.top_role:
+                    await ctx.reply("You cannot ban someone with a higher or equal role!")
+                    return
 
             confirm_view = discord.ui.View()
             confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.danger)
             cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
-            compromised_button = discord.ui.Button(label="Compromised Account", style=discord.ButtonStyle.primary)
+            compromised_button = discord.ui.Button(label="Compromised account", style=discord.ButtonStyle.primary)
 
             async def confirm_callback(interaction):
                 if interaction.user != ctx.author:
                     await interaction.response.send_message("This is not for you!", ephemeral=True)
                     return
 
-                await member.ban(reason=reason)
-                await self.logger.log_action(ctx, "Ban", member, reason)
-                await member.send(f"You were banned from **{ctx.guild.name}**!\nReason: ` {reason or 'No reason provided'} `")
-                
-                with open('data/strings.json', 'r') as f:
-                    strings = json.load(f)
-                    action = random.choice(strings['user_was_x'])
-                
-                await confirm_message.edit(content=f"**{member.name}** was {action}", view=None)
-                await interaction.response.defer()
+                try:
+                    await ctx.guild.ban(user, reason=reason)
+                    
+                    case_id = await self.save_mod_action(ctx.guild.id, {
+                        'user_id': user.id,
+                        'mod_id': ctx.author.id,
+                        'action': 'Ban',
+                        'reason': reason
+                    })
 
-            async def cancel_callback(interaction):
-                if interaction.user != ctx.author:
-                    await interaction.response.send_message("This is not for you!", ephemeral=True)
-                    return
+                    embed = discord.Embed(
+                        title=f"You were banned from {ctx.guild.name}",
+                        color=discord.Color.red()
+                    )
+                    if reason:
+                        embed.add_field(name="Reason", value=reason)
 
-                await confirm_message.edit(content="Guess not then.", view=None)
-                await interaction.response.defer()
+                    await user.send(embed=embed)
+                    
+                    await self.log_mod_action(ctx, "Ban", user, case_id, reason=reason)
+                    
+                    with open('data/strings.json', 'r') as f:
+                        strings = json.load(f)
+                        action = random.choice(strings['user_was_x'])
+                    
+                    await confirm_message.edit(content=f"**{user}** was {action}", view=None)
+                    await interaction.response.defer()
+                except Exception as e:
+                    await confirm_message.edit(content=f"Error: {str(e)}", view=None)
 
             async def compromised_callback(interaction):
                 if interaction.user != ctx.author:
@@ -291,22 +350,36 @@ class Moderation(commands.Cog):
                         "2. Enable 2-factor authentication\n"
                         "3. Remove any suspicious authorized apps\n"
                         "4. Check for suspicious login locations\n\n"
-                        "You have been automatically unbanned and can rejoin once you've secured your account."
+                        "You have been automatically unbanned and can re-join once you've secured your account."
                     )
                     try:
-                        await member.send(dm_message)
+                        await user.send(dm_message)
                     except:
                         pass
 
-                    await member.ban(reason="Compromised account", delete_message_days=1)
-                    await self.logger.log_action(ctx, "Ban", member, "Compromised account")
+                    await user.ban(reason="Compromised account", delete_message_days=1)
+                    
+                    case_id = await self.save_mod_action(ctx.guild.id, {
+                        'user_id': user.id,
+                        'mod_id': ctx.author.id,
+                        'action': 'Ban',
+                        'reason': "Compromised account"
+                    })
+                    
+                    await self.log_mod_action(ctx, "Ban", user, case_id, reason="Compromised account")
                     
                     await asyncio.sleep(2)
-                    await ctx.guild.unban(member)
+                    await ctx.guild.unban(user)
                     
-                    await interaction.message.edit(f"**{member.name}** was banned for compromised account.")
+                    await interaction.message.edit(f"**{user}** was banned for compromised account")
                 except Exception as e:
                     await interaction.message.edit(f"Error handling compromised account: {str(e)}")
+
+            async def cancel_callback(interaction):
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
+                    return
+                await interaction.message.delete()
 
             confirm_button.callback = confirm_callback
             cancel_button.callback = cancel_callback
@@ -315,8 +388,7 @@ class Moderation(commands.Cog):
             confirm_view.add_item(cancel_button)
             confirm_view.add_item(compromised_button)
 
-            confirm_message = await ctx.reply(f"Are you sure you want to ban **{member.name}**?", view=confirm_view)
-
+            confirm_message = await ctx.reply(f"Are you sure you want to ban **{user}**?", view=confirm_view)
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to ban that user!")
@@ -347,12 +419,11 @@ class Moderation(commands.Cog):
                 ban_entry = await ctx.guild.fetch_ban(discord.Object(id=user_id))
                 user = ban_entry.user
             except discord.NotFound:
-                await ctx.send("That user is not banned.")
+                await ctx.send("That user is not banned")
                 return
 
             await ctx.guild.unban(user)
-            await self.logger.log_action(ctx, "Unban", user, "No reason provided")
-            await ctx.send(f"**{user.name}** has been unbanned.")
+            await ctx.send(f"**{user.name}** has been unbanned")
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to unban users!")
@@ -360,46 +431,64 @@ class Moderation(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
-    ## Timeout Command
+    ## Mute Command
     #################################   
-    @commands.command(aliases=['timeout', 'silence'])
+    @commands.command(aliases=['silence'])
     @PermissionHandler.has_permissions(moderate_members=True)
-    async def mute(self, ctx, member: discord.Member, time: str = None, *, reason=None):
-        """Timeout a member (e.g. 1h, 30m, 1d)"""
+    async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason=None):
+        """Mute a member (e.g. 1h, 30m, 1d). Default: 1 hour"""
         try:
             if member.top_role >= ctx.author.top_role:
-                await ctx.send("You cannot timeout someone with a higher or equal role!")
+                await ctx.send("You cannot mute someone with a higher or equal role!")
                 return
 
-            if not time:
-                await ctx.send("Please provide a duration (e.g. 1h, 30m, 1d)")
+            if duration is None:
+                duration = "1h"
+                
+            seconds = TimeParser.parse_time_string(duration)
+            if not seconds:
+                await ctx.send("Invalid duration format. Use combinations of w/d/h/m/s (e.g., 1d12h)")
                 return
 
-            duration = 0
-            if time.endswith('m'): duration = int(time[:-1]) * 60
-            elif time.endswith('h'): duration = int(time[:-1]) * 60 * 60
-            elif time.endswith('d'): duration = int(time[:-1]) * 24 * 60 * 60
-            else:
-                await ctx.send("Invalid duration format. Use m (minutes), h (hours), or d (days)")
+            if seconds > 2419200:
+                await ctx.send("Timeout duration cannot exceed 28 days.")
                 return
 
-            if duration <= 0:
-                await ctx.send("Duration must be positive")
-                return
+            await member.timeout(
+                discord.utils.utcnow() + timedelta(seconds=seconds),
+                reason=f"{ctx.author}: {reason}" if reason else f"{ctx.author}: no reason provided"
+            )
 
-            await member.timeout(discord.utils.utcnow() + timedelta(seconds=duration), reason=reason)
-            await self.logger.log_action(ctx, "Timeout", member, f"{time} - {reason if reason else 'No reason provided'}")
-            await ctx.send(f"**{member.name}** has been timed out for **{time}**")
+            case_id = await self.save_mod_action(ctx.guild.id, {
+                'user_id': member.id,
+                'mod_id': ctx.author.id,
+                'action': 'Mute',
+                'reason': reason,
+                'duration': TimeParser.format_duration(seconds)
+            })
+
+            future_timestamp = int((datetime.utcnow() + timedelta(seconds=seconds)).timestamp())
+            await self.log_mod_action(
+                ctx, 
+                "Mute",
+                member,
+                case_id,
+                reason=reason,
+                duration=TimeParser.format_duration(seconds),
+                expires_at=future_timestamp
+            )
+
+            await ctx.send(f"**{member.name}** has been muted for {TimeParser.format_duration(seconds)}")
 
         except discord.Forbidden:
-            await ctx.send("I don't have permission to timeout that user!")
+            await ctx.send("I don't have permission to mute that user!")
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Unmute Command
     #################################   
-    @commands.command(aliases=['unsilence'])
+    @commands.command(aliases=['unsilence', 'untimeout'])
     @PermissionHandler.has_permissions(moderate_members=True)
     async def unmute(self, ctx, member: discord.Member, *, reason=None):
         """Remove timeout from a member"""
@@ -411,20 +500,19 @@ class Moderation(commands.Cog):
             if not member.is_timed_out():
                 mute_role_id = self.bot.settings.get_server_setting(ctx.guild.id, "mute_role")
                 if not mute_role_id:
-                    await ctx.send("This user is not muted.")
+                    await ctx.send("This user is not muted")
                     return
                 
                 mute_role = ctx.guild.get_role(int(mute_role_id))
                 if not mute_role or mute_role not in member.roles:
-                    await ctx.send("This user is not muted.")
+                    await ctx.send("This user is not muted")
                     return
                 
                 await member.remove_roles(mute_role, reason=reason)
             else:
                 await member.timeout(None, reason=reason)
 
-            await self.logger.log_action(ctx, "Unmute", member, reason or "No reason provided")
-            await ctx.send(f"**{member.name}** has been unmuted.")
+            await ctx.send(f"**{member.name}** has been unmuted")
 
         except discord.Forbidden:
             await ctx.send("I don't have permission to unmute that user!")
@@ -491,7 +579,7 @@ class Moderation(commands.Cog):
                     role = self.find_best_match(role_input, ctx.guild.roles)
 
             if not role:
-                await ctx.send("Could not find that role.")
+                await ctx.send("Could not find that role")
                 return
 
             if role >= ctx.author.top_role and not ctx.author.guild_permissions.administrator:
@@ -513,129 +601,177 @@ class Moderation(commands.Cog):
     #################################
     ## Purge Command
     #################################
-    @commands.command()
-    @PermissionHandler.has_permissions(manage_messages=True)    
-    async def purge(self, ctx, amount: int, *, flags: str = None):
-        """Delete messages with advanced filtering
-        Flags:
-        --user @user: Messages from specific user
-        --contains text: Messages containing text
-        --startswith text: Messages starting with text
-        --endswith text: Messages ending with text
-        --links: Messages containing links
-        --invites: Messages containing Discord invites
-        --images: Messages containing attachments
-        --embeds: Messages containing embeds
-        --bots: Messages from bots
-        --humans: Messages from humans
-        --emoji: Messages containing emoji
-        --reactions: Messages with reactions
-        --pins: Include pinned messages (default: excluded)"""
-        
-        def message_check(message):
-            if message.pinned and ('pins' not in flag_dict):
-                return False
-                
-            if flags is None:
-                return True
-                
-            flag_dict = {}
-            current_flag = None
-            current_value = []
+    @commands.group(invoke_without_command=True)
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge(self, ctx, search: int = 100, member: discord.Member = None):
+        """Purge messages. If member is specified, only purge their messages"""
+        if search > 1000:
+            await ctx.send("Cannot delete more than 1000 messages at once")
+            return
             
-            for part in flags.split():
-                if part.startswith('--'):
-                    if current_flag:
-                        flag_dict[current_flag] = ' '.join(current_value)
-                    current_flag = part[2:]
-                    current_value = []
-                else:
-                    current_value.append(part)
-                    
-            if current_flag:
-                flag_dict[current_flag] = ' '.join(current_value)
-            
-            if 'user' in flag_dict:
-                user_id = re.findall(r'\d+', flag_dict['user'])[0]
-                if str(message.author.id) != user_id:
-                    return False
-            
-            if 'contains' in flag_dict and flag_dict['contains'].lower() not in message.content.lower():
+        def check(message):
+            if message.pinned:
                 return False
-            if 'startswith' in flag_dict and not message.content.lower().startswith(flag_dict['startswith'].lower()):
-                return False
-            if 'endswith' in flag_dict and not message.content.lower().endswith(flag_dict['endswith'].lower()):
-                return False
-            
-            if 'links' in flag_dict and not re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content):
-                return False
-            if 'invites' in flag_dict and not re.search(r'discord\.gg/\w+', message.content):
-                return False
-            if 'images' in flag_dict and not message.attachments:
-                return False
-            if 'embeds' in flag_dict and not message.embeds:
-                return False
-            if 'bots' in flag_dict and not message.author.bot:
-                return False
-            if 'humans' in flag_dict and message.author.bot:
-                return False
-            if 'emoji' in flag_dict and not re.findall(r'<a?:\w+:\d+>|[\U0001F300-\U0001F9FF]', message.content):
-                return False
-            if 'reactions' in flag_dict and not message.reactions:
-                return False
-                
+            if member:
+                return message.author == member
             return True
 
         try:
-            deleted = await ctx.channel.purge(limit=amount + 1, check=message_check)
-            msg = await ctx.send(f"Deleted {len(deleted) - 1} messages.")
-            await msg.delete(delay=3)
-            
-            mod_audit_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_mod_audit")
-            if mod_audit_channel_id:
-                channel = ctx.guild.get_channel(int(mod_audit_channel_id))
-                if channel:
-                    embed = discord.Embed(
-                        title="Bulk messages deleted",
-                        description=f"**Channel:** {ctx.channel.mention}\n**Amount:** {len(deleted) - 1}\n**Moderator:** {ctx.author.mention}",
-                        color=discord.Color.red(),
-                        timestamp=datetime.utcnow()
-                    )
-                    if flags:
-                        embed.add_field(name="Filters used", value=f"```{flags}```")
-                    await channel.send(embed=embed)
-
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to delete messages.")
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, member)
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='bot')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_bot(self, ctx, search: int = 100, prefix: str = None):
+        """Purge bot messages and messages with prefix"""
+        def check(message):
+            if message.pinned:
+                return False
+            if message.author.bot:
+                return True
+            if prefix and message.content.startswith(prefix):
+                return True
+            return False
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, f"Bot messages {f'with prefix {prefix}' if prefix else ''}")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='contains')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_contains(self, ctx, search: int = 100, *, substring: str):
+        """Purge messages containing substring"""
+        def check(message):
+            return not message.pinned and substring.lower() in message.content.lower()
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, f"Messages containing: {substring}")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @commands.command()
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def cleanup(self, ctx, search: int = 100):
+        """Cleanup bot messages"""
+        def check(message):
+            return message.author == ctx.bot.user
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, ctx.bot.user)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='embeds')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_embeds(self, ctx, search: int = 100):
+        """Purge messages with embeds"""
+        def check(message):
+            return not message.pinned and (message.embeds or message.attachments)
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Messages with embeds")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='emoji')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_emoji(self, ctx, search: int = 100):
+        """Purge messages containing custom emoji"""
+        def check(message):
+            return not message.pinned and re.search(r'<a?:\w+:\d+>', message.content)
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Messages with custom emoji")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='files')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_files(self, ctx, search: int = 100):
+        """Purge messages with attachments"""
+        def check(message):
+            return not message.pinned and message.attachments
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Messages with attachments")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='links')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_links(self, ctx, search: int = 100):
+        """Purge messages containing links"""
+        def check(message):
+            return not message.pinned and re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content)
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Messages with links")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='mentions', aliases=['pings'])
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_mentions(self, ctx, search: int = 100):
+        """Purge messages containing mentions"""
+        def check(message):
+            return not message.pinned and (message.mentions or message.role_mentions or message.mention_everyone)
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Messages with mentions")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    @purge.command(name='humans')
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def purge_humans(self, ctx, search: int = 100):
+        """Purge messages by humans"""
+        def check(message):
+            return not message.pinned and not message.author.bot
+
+        try:
+            deleted = await ctx.channel.purge(limit=search + 1, check=check)
+            await self.log_bulk_delete(ctx, len(deleted) - 1, None, "Human messages")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    async def log_bulk_delete(self, ctx, count: int, target: discord.Member = None, filter_info: str = None):
+        """Helper function to log bulk message deletions"""
+        log_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_mod_audit")
+        if not log_channel_id:
+            return
+        
+        await ctx.send(f"Deleted {count} messages")
 
     #################################
     ## Add Note Command
     #################################
-    @commands.command()
+    @commands.command(aliases=['setnote'])
     @PermissionHandler.has_permissions(kick_members=True)
-    async def addnote(self, ctx, user: Union[discord.Member, discord.User, str], *, note: str):
+    async def note(self, ctx, member: Union[discord.Member, discord.User], *, note: str):
         """Add a note to a user's record"""
-        try:
-            if isinstance(user, str):
-                if user.isdigit():
-                    user = await self.bot.fetch_user(int(user))
-                else:
-                    mention_match = re.match(r'<@!?(\d+)>', user)
-                    if mention_match:
-                        user = await self.bot.fetch_user(int(mention_match.group(1)))
-                    else:
-                        await ctx.send("Please provide a valid user ID or mention.")
-                        return
-                    
-            await self.logger.log_action(ctx, "Note", user, note)
-            await ctx.send(f"Added note to **{user.name}**'s record.")
-
-        except discord.NotFound:
-            await ctx.send("Could not find that user.")
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
+        case_id = await self.save_mod_action(
+            ctx.guild.id,
+            {
+                'action': 'Note',
+                'user_id': member.id,
+                'mod_id': ctx.author.id,
+                'reason': note
+            }
+        )
+        
+        await self.log_mod_action(ctx, "Note", member, case_id, reason=note)
+        await ctx.reply(f"Added note to **{member.name}**'s record")
 
     #################################
     ## Lock Command
@@ -692,16 +828,34 @@ class Moderation(commands.Cog):
     @PermissionHandler.has_permissions(kick_members=True)
     async def warn(self, ctx, member: discord.Member, *, reason=None):
         """Warn a member"""
+        if member.top_role >= ctx.author.top_role:
+            await ctx.reply("You cannot warn someone with a higher or equal role!")
+            return
+        
+        case_id = await self.save_mod_action(
+            ctx.guild.id,
+            {
+                'action': 'Warn',
+                'user_id': member.id,
+                'mod_id': ctx.author.id,
+                'reason': reason
+            }
+        )
+        
         try:
-            if member.top_role >= ctx.author.top_role:
-                await ctx.reply("You cannot warn someone with a higher or equal role!")
-                return
-            
-            await self.logger.log_action(ctx, "Warning", member, reason)
-            await ctx.reply(f"Warned **{member.name}**" + (f" for: **{reason}**" if reason else ""))
+            embed = discord.Embed(
+                title=f"You were warned in {ctx.guild.name}",
+                color=discord.Color.yellow()
+            )
+            if reason:
 
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
+                embed.add_field(name="Reason", value=reason)
+            await member.send(embed=embed)
+        except:
+            pass
+        
+        await self.log_mod_action(ctx, "Warn", member, case_id, reason=reason)
+        await ctx.reply(f"Warned **{member.name}**" + (f" for: **{reason}**" if reason else ""))
 
     #################################
     ## Nickname Command
@@ -719,6 +873,322 @@ class Moderation(commands.Cog):
                 await ctx.send(f"Changed **{member.name}**'s nickname from **{old_nick}** to **{new_nick}**")
         except discord.Forbidden:
             await ctx.send("I don't have permission to change that user's nickname")
+
+    #################################
+    ## Softban Command
+    #################################   
+    @commands.command()
+    @PermissionHandler.has_permissions(ban_members=True)
+    async def softban(self, ctx, member: discord.Member, days: int = 2, *, reason=None):
+        """Ban and immediately unban to clear message history"""
+        try:
+            if member.top_role >= ctx.author.top_role:
+                await ctx.reply("You cannot softban someone with a higher or equal role!")
+                return
+
+            confirm_view = discord.ui.View()
+            confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.danger)
+            cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
+
+            async def confirm_callback(interaction):
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
+                    return
+
+                try:
+                    await member.ban(reason=reason, delete_message_days=days)
+                    case_id = await self.save_mod_action(ctx.guild.id, {
+                        'user_id': member.id,
+                        'mod_id': ctx.author.id,
+                        'action': 'Softban',
+                        'reason': reason
+                    })
+                    
+                    await self.log_mod_action(ctx, "Softbanned", member, case_id, reason=reason)
+                    await ctx.guild.unban(member)
+                    
+                    with open('data/strings.json', 'r') as f:
+                        strings = json.load(f)
+                        action = random.choice(strings['user_was_x'])
+                    
+                    await confirm_message.edit(content=f"**{member.name}** was {action}", view=None)
+                    await interaction.response.defer()
+                except Exception as e:
+                    await confirm_message.edit(content=f"Error: {str(e)}", view=None)
+                    await interaction.response.defer()
+
+            async def cancel_callback(interaction):
+                if interaction.user != ctx.author:
+                    await interaction.response.send_message("This is not for you!", ephemeral=True)
+                    return
+                await interaction.message.delete()
+
+            confirm_button.callback = confirm_callback
+            cancel_button.callback = cancel_callback
+            confirm_view.add_item(confirm_button)
+            confirm_view.add_item(cancel_button)
+
+            confirm_message = await ctx.send(
+                f"Are you sure you want to softban **{member.name}**?" +
+                (f"\nReason: {reason}" if reason else ""),
+                view=confirm_view
+            )
+
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Tempban Command
+    #################################   
+    @commands.command()
+    @PermissionHandler.has_permissions(ban_members=True)
+    async def tempban(self, ctx, member: discord.Member, duration: str, days: int = 2, *, reason=None):
+        """Temporarily ban a member"""
+        try:
+            if member.top_role >= ctx.author.top_role:
+                await ctx.reply("You cannot tempban someone with a higher or equal role!")
+                return
+                
+            seconds = TimeParser.parse_time_string(duration)
+            if not seconds:
+                await ctx.send("Invalid duration format. Use combinations of w/d/h/m/s (e.g., 1d12h)")
+                return
+
+            await member.ban(reason=reason, delete_message_days=days)
+            case_id = await self.save_mod_action(ctx.guild.id, {
+                'user_id': member.id,
+                'mod_id': ctx.author.id,
+                'action': 'Tempban',
+                'reason': reason,
+                'duration': TimeParser.format_duration(seconds),
+                'expires_at': int((datetime.utcnow() + timedelta(seconds=seconds)).timestamp())
+            })
+            
+            await self.log_mod_action(
+                ctx, 
+                "Tempban", 
+                member, 
+                case_id, 
+                reason=reason,
+                duration=TimeParser.format_duration(seconds)
+            )
+
+            await asyncio.sleep(seconds)
+            try:
+                await ctx.guild.unban(member)
+                await self.log_mod_action(ctx, "Tempban expired", member, case_id)
+            except:
+                pass
+
+            await ctx.reply(f"**{member.name}** was tempbanned for {TimeParser.format_duration(seconds)}")
+
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to ban that user!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
+    #################################
+    ## Massban Command
+    #################################   
+    @commands.command()
+    @PermissionHandler.has_permissions(ban_members=True)
+    async def massban(self, ctx, days: int = 2, *, args):
+        """Ban multiple members at once"""
+        members = []
+        reason = None
+        
+        parts = args.split()
+        for part in parts:
+            if part.startswith('<@') and part.endswith('>'):
+                try:
+                    member_id = int(part[2:-1].replace('!', ''))
+                    member = ctx.guild.get_member(member_id)
+                    if member:
+                        members.append(member)
+                except:
+                    continue
+            elif part.isdigit():
+                try:
+                    member = ctx.guild.get_member(int(part))
+                    if member:
+                        members.append(member)
+                except:
+                    continue
+            else:
+                reason_start = args.find(part)
+                if reason_start != -1:
+                    reason = args[reason_start:]
+                break
+
+        if not members:
+            await ctx.send("No valid members provided!")
+            return
+
+        confirm_view = discord.ui.View()
+        confirm_button = discord.ui.Button(label="Confirm", style=discord.ButtonStyle.danger)
+        cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.secondary)
+
+        async def confirm_callback(interaction):
+            if interaction.user != ctx.author:
+                await interaction.response.send_message("This is not for you!", ephemeral=True)
+                return
+
+            success = []
+            failed = []
+            for member in members:
+                try:
+                    if member.top_role >= ctx.author.top_role:
+                        failed.append(f"{member.name} (higher role)")
+                        continue
+                        
+                    await member.ban(reason=reason, delete_message_days=days)
+                    case_id = await self.save_mod_action(ctx.guild.id, {
+                        'user_id': member.id,
+                        'mod_id': ctx.author.id,
+                        'action': 'Massban',
+                        'reason': reason
+                    })
+                    await self.log_mod_action(ctx, "Massban", member, case_id, reason=reason)
+                    success.append(member.name)
+                except:
+                    failed.append(member.name)
+
+            report = f"Banned {len(success)} members"
+            if success:
+                report += f"\nSuccess: {', '.join(success[:10])}" + ("..." if len(success) > 10 else "")
+            if failed:
+                report += f"\nFailed: {', '.join(failed[:10])}" + ("..." if len(failed) > 10 else "")
+                
+            await confirm_message.edit(content=report, view=None)
+            await interaction.response.defer()
+
+        async def cancel_callback(interaction):
+            if interaction.user != ctx.author:
+                await interaction.response.send_message("This is not for you!", ephemeral=True)
+                return
+            await interaction.message.delete()
+
+        confirm_button.callback = confirm_callback
+        cancel_button.callback = cancel_callback
+        confirm_view.add_item(confirm_button)
+        confirm_view.add_item(cancel_button)
+
+        confirm_message = await ctx.send(
+            f"Are you sure you want to ban {len(members)} members?\n" +
+            "\n".join(f"- {member.name} ({member.id})" for member in members[:10]) +
+            ("\n..." if len(members) > 10 else "") +
+            (f"\nReason: {reason}" if reason else ""),
+            view=confirm_view
+        )
+
+    #################################
+    ## Warning Management Commands
+    #################################
+    @commands.group(invoke_without_command=True)
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def warns(self, ctx, member: discord.Member = None):
+        """List warnings for a member or the whole server"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        mod_logs = settings.get('mod_logs', {})
+        
+        if member:
+            warnings = [
+                log for log in mod_logs.values()
+                if log.get('action') == 'Warn' and log.get('user_id') == member.id
+            ]
+            if not warnings:
+                return await ctx.send(f"**{member.name}** has no warnings.")
+                
+            embed = discord.Embed(title=f"Warnings for {member.name}", color=discord.Color.yellow())
+        else:
+            warnings = [log for log in mod_logs.values() if log.get('action') == 'Warn']
+            if not warnings:
+                return await ctx.send("No warnings in this server.")
+                
+            embed = discord.Embed(title="Server Warnings", color=discord.Color.yellow())
+            
+        for warn in warnings[-10:]:
+            mod = ctx.guild.get_member(warn.get('mod_id'))
+            embed.add_field(
+                name=f"Case {warn.get('case_id')}",
+                value=f"**Moderator:** {mod.mention if mod else 'Unknown'}\n"
+                      f"**Reason:** {warn.get('reason') or 'No reason provided'}",
+                inline=False
+            )
+            
+        await ctx.send(embed=embed)
+
+    @warns.command(name='remove')
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def remove_warn(self, ctx, case_id: str):
+        """Remove a warning by its case ID"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        mod_logs = settings.get('mod_logs', {})
+        
+        if case_id not in mod_logs or mod_logs[case_id].get('action') != 'Warn':
+            return await ctx.send("Warning not found.")
+            
+        warning = mod_logs[case_id]
+        del mod_logs[case_id]
+        
+        self.bot.settings.set_server_setting(ctx.guild.id, 'mod_logs', mod_logs)
+        await ctx.send(f"Removed warning case **{case_id}**")
+        
+        member = ctx.guild.get_member(warning.get('user_id'))
+        if member:
+            await self.log_mod_action(ctx, "Warning Removed", member, case_id)
+
+    @warns.command(name='clear')
+    @PermissionHandler.has_permissions(kick_members=True)
+    async def clear_warns(self, ctx, member: discord.Member):
+        """Clear all warnings from a member"""
+        settings = self.bot.settings.get_all_server_settings(ctx.guild.id)
+        mod_logs = settings.get('mod_logs', {})
+        
+        removed = 0
+        new_logs = {}
+        for case_id, log in mod_logs.items():
+            if log.get('action') == 'Warn' and log.get('user_id') == member.id:
+                removed += 1
+            else:
+                new_logs[case_id] = log
+                
+        if removed == 0:
+            return await ctx.send(f"**{member.name}** has no warnings to clear.")
+            
+        self.bot.settings.set_server_setting(ctx.guild.id, 'mod_logs', new_logs)
+        await ctx.send(f"Cleared {removed} warning(s) from **{member.name}**")
+        
+        await self.log_mod_action(ctx, "Warnings Cleared", member, self.generate_case_id())
+
+    async def log_mod_action(self, ctx, action: str, target: Union[discord.Member, discord.User], case_id: str, *, reason: str = None, duration: str = None, expires_at: int = None):
+        """Log a moderation action to the audit log channel"""
+        log_channel_id = self.bot.settings.get_server_setting(ctx.guild.id, "log_channel_mod_audit")
+        if not log_channel_id:
+            return
+            
+        channel = ctx.guild.get_channel(int(log_channel_id))
+        if not channel:
+            return
+
+        embed = EmbedBuilder(
+            title=f"{action}",
+            description=(
+                f"**User:** {target.mention}\n`{target.id}`\n"
+                f"**Moderator:** {ctx.author.mention}\n`{ctx.author.id}`\n"
+                f"**Case ID:** `{case_id}`"
+                + (f"\n**Duration:** {duration}" if duration else "")
+
+
+                + (f"\n**Expires:** <t:{expires_at}:R>" if expires_at else "")
+                + (f"\n\n**Reason:**\n> {reason}" if reason else "\n\n**Reason:** No reason provided")
+            )
+        )
+        
+        embed.set_thumbnail(url=target.display_avatar.url)
+        embed = embed.build()
+        embed.color = 0x2B2D31
+        await channel.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Moderation(bot))
