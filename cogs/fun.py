@@ -8,24 +8,66 @@ import aiohttp
 import re
 
 from discord.ext import commands
+from utils.helpers.formatting import EmbedBuilder, TextFormatter
+from utils.permissions.handler import PermissionHandler
 
 class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.eight_ball_responses = [
+            "It is certain.", "It is decidedly so.", "Without a doubt.",
+            "Yes definitely.", "You may rely on it.", "As I see it, yes.",
+            "Most likely.", "Outlook good.", "Yes.", "Signs point to yes.",
+            "Reply hazy, try again.", "Ask again later.", "Better not tell you now.",
+            "Cannot predict now.", "Concentrate and ask again.",
+            "Don't count on it.", "My reply is no.", "My sources say no.",
+            "Outlook not so good.", "Very doubtful."
+        ]
 
-    ###########################
-    ## Game Commands
-    ###########################
     @commands.command()
-    async def roll(self, ctx, dice: str):
-        """Roll a dice in NdN format."""
+    async def roll(self, ctx, dice: str = "1d6"):
+        """Roll dice in NdN format"""
         try:
-            rolls, limit = map(int, dice.split('d'))
-            result = [random.randint(1, limit) for r in range(rolls)]
-            await ctx.send(f"Results: {', '.join(map(str, result))}")
-        except Exception:
-            await ctx.send("Format has to be in NdN!")
-    
+            match = re.match(r"(\d+)d(\d+)", dice.lower())
+            if not match:
+                await ctx.send("Format must be in NdN! (e.g., 2d6)")
+                return
+
+            number, sides = map(int, match.groups())
+            
+            if number > 100:
+                await ctx.send("Cannot roll more than 100 dice!")
+                return
+                
+            if sides > 100:
+                await ctx.send("Cannot roll dice with more than 100 sides!")
+                return
+
+            rolls = [random.randint(1, sides) for _ in range(number)]
+            total = sum(rolls)
+            
+            embed = EmbedBuilder(
+                title="🎲 Dice Roll",
+                color=discord.Color.blue()
+            ).add_field(
+                name="Roll",
+                value=f"`{dice}`",
+                inline=True
+            ).add_field(
+                name="Results",
+                value=f"`{', '.join(map(str, rolls))}`",
+                inline=True
+            ).add_field(
+                name="Total",
+                value=f"**{total}**",
+                inline=True
+            )
+            
+            await ctx.send(embed=embed.build())
+            
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
+
     @commands.command()
     async def rps(self, ctx, choice: str):
         """Play Rock Paper Scissors"""
@@ -825,18 +867,30 @@ class Fun(commands.Cog):
         await ctx.send(message)
 
     @commands.command()
-    async def choose(self, ctx, *choices: str):
+    async def choose(self, ctx, *, choices: str):
         """Choose between multiple options"""
-        clean_choices = [
-            discord.utils.escape_mentions(discord.utils.escape_markdown(choice))
-            for choice in choices
-        ]
+        options = [opt.strip() for opt in choices.split(',') if opt.strip()]
         
-        if len(clean_choices) < 2:
-            await ctx.send("I need at least 2 choices to pick from!")
+        if len(options) < 2:
+            await ctx.send("Please provide at least 2 options separated by commas!")
             return
-            
-        await ctx.send(f"I choose: **{random.choice(clean_choices)}**")
+
+        choice = random.choice(options)
+        
+        embed = EmbedBuilder(
+            title="🤔 Choice Made",
+            color=discord.Color.blue()
+        ).add_field(
+            name="Options",
+            value="\n".join(f"• {TextFormatter.clean_text(opt)}" for opt in options),
+            inline=False
+        ).add_field(
+            name="I choose",
+            value=f"**{TextFormatter.clean_text(choice)}**",
+            inline=False
+        )
+        
+        await ctx.send(embed=embed.build())
 
     @commands.command()
     async def snipe(self, ctx):
@@ -1039,9 +1093,10 @@ class Fun(commands.Cog):
 
         await ctx.send(f"{member.display_name} was {action}")
 
-    @commands.command(name="8ball", aliases=['8'])
-    async def _8ball(self, ctx, *, question: str):
+    @commands.command(name='8ball', aliases=['8'])
+    async def _8ball(self, ctx):
         """Ask the magic 8ball a question"""
+
         responses = [
             "It is certain", "Without a doubt", "You may rely on it",
             "Yes definitely", "It is decidedly so", "As I see it, yes",
@@ -1052,10 +1107,6 @@ class Fun(commands.Cog):
             "My reply is no", "My sources say no",
             "Outlook not so good", "Very doubtful"
         ]
-        
-        if not question.endswith('?'):
-            await ctx.send("That doesn't look like a question!")
-            return
             
         await ctx.send(f"{random.choice(responses)}")
 
@@ -1265,6 +1316,48 @@ class Fun(commands.Cog):
         embed.set_footer(text="Wake up sheeple!")
         
         await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def fact(self, ctx):
+        """Get a random fact"""
+        facts = [
+            "A day on Venus is longer than its year!",
+            "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!",
+            "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after just 38 minutes!",
+            "A group of flamingos is called a 'flamboyance'!",
+            "The first oranges weren't orange! The original oranges from Southeast Asia were actually green.",
+            # Add more facts here...
+        ]
+        
+        embed = EmbedBuilder(
+            title="🤓 Random Fact",
+            description=random.choice(facts),
+            color=discord.Color.blue()
+        )
+        
+        await ctx.send(embed=embed.build())
+
+    @commands.command()
+    @PermissionHandler.has_permissions(manage_messages=True)
+    async def say(self, ctx, channel: discord.TextChannel = None, *, message: str):
+        """Make the bot say something"""
+        target_channel = channel or ctx.channel
+        
+        # Check if bot has permission to send messages in target channel
+        permissions = target_channel.permissions_for(ctx.guild.me)
+        if not permissions.send_messages:
+            await ctx.send("I don't have permission to send messages in that channel!")
+            return
+
+        try:
+            await target_channel.send(TextFormatter.clean_text(message))
+            if target_channel != ctx.channel:
+                await ctx.message.add_reaction('✅')
+        except discord.Forbidden:
+            await ctx.send("I don't have permission to send messages in that channel!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
