@@ -4,7 +4,7 @@ import random
 import json
 import os
 
-from utils.settings import ServerSettings
+from utils.settings.handler import ServerSettings
 from discord.ext import commands
 from config import TOKEN
 
@@ -24,20 +24,37 @@ class Bot(commands.Bot):
     ## Setup Hook
     #################################   
     async def setup_hook(self):
-        print("cogs laden...")
-        for filename in os.listdir("./cogs"):
-            print(f"gevonden: {filename}")
-            if filename.endswith(".py") and not filename.startswith("__"):
-                print(f"cog geladen: cogs.{filename[:-3]}")
-                await self.load_extension(f"cogs.{filename[:-3]}")
+        print("Loading core events...")
+        for event in ['logging', 'messages', 'errors']:
+            try:
+                await self.load_extension(f"events.core.{event}")
+                print(f"Loaded events.core.{event}")
+            except Exception as e:
+                print(f"Failed to load events.core.{event}: {e}")
         
-        print("events laden...")
-        await self.load_extension("events.handlers")
-        await self.load_extension("events.messages")
-        await self.load_extension("events.logging")
-        await self.load_extension("events.twitch")
-        await self.load_extension("events.youtube")
-        await self.load_extension("events.minecraft")
+        print("Loading feature events...")
+        for event in ['starboard', 'tracking']:
+            try:
+                await self.load_extension(f"events.features.{event}")
+                print(f"Loaded events.features.{event}")
+            except Exception as e:
+                print(f"Failed to load events.features.{event}: {e}")
+        
+        print("Loading cogs...")
+        for extension in [
+            "cogs.moderation",
+            "cogs.admin",
+            "cogs.casual",
+            "cogs.fun",
+            "cogs.media",
+            "cogs.help"
+        ]:
+            try:
+                await self.load_extension(extension)
+
+                print(f"Loaded {extension}")
+            except Exception as e:
+                print(f"Failed to load {extension}: {e}")
 
     #################################
     ## Ready and Status
@@ -81,16 +98,14 @@ class Bot(commands.Bot):
         settings = self.settings.get_all_server_settings(message.guild.id)
         prefixes = []
         
-        # custom prefix dingetje
         custom_prefix = settings.get('prefix')
         if custom_prefix:
             prefixes.append(custom_prefix)
         
-        # normale prefixes
         if settings.get('use_default_prefix', True):
             prefixes.extend(self.default_prefixes)
         
-        return prefixes if prefixes else self.default_prefixes  # fallback naar defaults als ie leeg is
+        return prefixes if prefixes else self.default_prefixes
 
 def main():
     bot = Bot()
