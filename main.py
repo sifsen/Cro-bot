@@ -11,7 +11,7 @@ from config import TOKEN
 
 class Bot(commands.Bot):
     def __init__(self):
-        self.default_prefixes = ['$', '%', '?', '!', '.', ',']
+        self.default_prefixes = ['$', '%', '?', '!', '.']
         
         super().__init__(
             command_prefix=self.get_prefix,
