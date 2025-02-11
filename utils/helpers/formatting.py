@@ -54,11 +54,11 @@ class TextFormatter:
         return flags
 
 class EmbedBuilder:
-    def __init__(self, title: str = None, description: str = None):
+    def __init__(self, title=None, description=None, color=None):
         self.embed = discord.Embed(
             title=title,
             description=description,
-            color=0x2B2D31
+            color=color
         )
 
     def add_field(self, name: str, value: str, inline: bool = True) -> 'EmbedBuilder':
@@ -88,4 +88,4 @@ class EmbedBuilder:
 
     def build(self) -> discord.Embed:
         """Return the built embed"""
-        return self.embed 
+        return self.embed
