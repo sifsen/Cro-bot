@@ -46,7 +46,6 @@ class Bot(commands.Bot):
             "cogs.admin",
             "cogs.casual",
             "cogs.fun",
-            "cogs.media",
             "cogs.help"
         ]:
             try:
