@@ -1317,47 +1317,5 @@ class Fun(commands.Cog):
         
         await ctx.send(embed=embed)
 
-    @commands.command()
-    @commands.cooldown(1, 60, commands.BucketType.user)
-    async def fact(self, ctx):
-        """Get a random fact"""
-        facts = [
-            "A day on Venus is longer than its year!",
-            "Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!",
-            "The shortest war in history was between Britain and Zanzibar on August 27, 1896. Zanzibar surrendered after just 38 minutes!",
-            "A group of flamingos is called a 'flamboyance'!",
-            "The first oranges weren't orange! The original oranges from Southeast Asia were actually green.",
-            # Add more facts here...
-        ]
-        
-        embed = EmbedBuilder(
-            title="🤓 Random Fact",
-            description=random.choice(facts),
-            color=discord.Color.blue()
-        )
-        
-        await ctx.send(embed=embed.build())
-
-    @commands.command()
-    @PermissionHandler.has_permissions(manage_messages=True)
-    async def say(self, ctx, channel: discord.TextChannel = None, *, message: str):
-        """Make the bot say something"""
-        target_channel = channel or ctx.channel
-        
-        # Check if bot has permission to send messages in target channel
-        permissions = target_channel.permissions_for(ctx.guild.me)
-        if not permissions.send_messages:
-            await ctx.send("I don't have permission to send messages in that channel!")
-            return
-
-        try:
-            await target_channel.send(TextFormatter.clean_text(message))
-            if target_channel != ctx.channel:
-                await ctx.message.add_reaction('✅')
-        except discord.Forbidden:
-            await ctx.send("I don't have permission to send messages in that channel!")
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
-
 async def setup(bot):
     await bot.add_cog(Fun(bot)) 
