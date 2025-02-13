@@ -1091,7 +1091,7 @@ class Fun(commands.Cog):
             strings = json.load(f)
             action = random.choice(strings['user_was_x'])
 
-        await ctx.send(f"{member.display_name} was {action}")
+        await ctx.send(f"**{member.display_name}** was {action}")
 
     @commands.command(name='8ball', aliases=['8'])
     async def _8ball(self, ctx):
