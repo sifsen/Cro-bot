@@ -22,7 +22,7 @@ class Casual(commands.Cog):
     async def about(self, ctx):
         """About Kael"""
         embed = discord.Embed(
-            title="About Kael",
+            title="About Cro",
             description=(
                 "Work in progress"
             ),
@@ -38,14 +38,14 @@ class Casual(commands.Cog):
     @commands.command(aliases=["issue", "features", "request", "suggestion"])
     async def issues(self, ctx):
         """Report an issue or request a feature"""
-        await ctx.send("Click [this link](https://github.com/CursedSen/Kael-bot/issues) to report an issue or request a feature!")
+        await ctx.send("Click [this link](https://github.com/CursedSen/Cro-bot/issues) to report an issue or request a feature!")
 
     #################################
-    ## Invite Kael
+    ## Invite Cro
     #################################
     @commands.command()
     async def invite(self, ctx):
-        """Invite Kael to your server"""
+        """Invite Cro to your server"""
         await ctx.send("You can click on my profile, or click [this link](https://discord.com/oauth2/authorize?client_id=1293508738036142091) to invite me to your server!")
 
     #################################
@@ -59,76 +59,107 @@ class Casual(commands.Cog):
     #################################
     ## User Info Command
     #################################
-    @commands.command(aliases=["userinfo"])
-    async def profile(self, ctx, member: discord.Member = None):
-        """Get detailed info about a user"""
-        member = member or ctx.author
-        
-        roles = [role.mention for role in member.roles[1:]]
-        
-        embed = discord.Embed(
-            title=f"{member.name}",
-            color=member.color,
-            timestamp=datetime.utcnow()
-        )
-        
-        embed.set_thumbnail(url=member.display_avatar.url)
-        
-        embed.add_field(name="", value=f"```ID: {member.id}```", inline=False)
-        embed.add_field(
-            name="Created at",
-            value=discord.utils.format_dt(member.created_at, 'F'),
-            inline=True
-        )
-        embed.add_field(
-            name="Joined at",
-            value=discord.utils.format_dt(member.joined_at, 'F'),
-            inline=True
-        )
-        
-        if roles:
-            embed.add_field(
-                name=f"Roles [{len(roles)}]",
-                value=" ".join(roles) if len(" ".join(roles)) < 1024 else f"{len(roles)} roles",
-                inline=False
+    @commands.command(aliases=['userinfo', 'user'])
+    async def profile(self, ctx, user_id: str = None):
+        """Get a user's profile"""
+        try:
+            if user_id is None:
+                user = ctx.author
+            else:
+                user_id = user_id.strip('<@!>')
+                user = await self.bot.fetch_user(int(user_id))
+            
+            member = ctx.guild.get_member(user.id) if ctx.guild else None
+            
+            embed = discord.Embed(
+                title=f"**{user.name}**",
+                description=f"Mention: {user.mention}",
+                color=member.color if member else 0x2B2D31
             )
-        
-        embed.add_field(name="Top Role", value=member.top_role.mention, inline=True)
-        embed.add_field(
-            name="Status",
-            value=str(member.status).title(),
-            inline=True
-        )
-        
-        await ctx.send(embed=embed)
+
+            embed.set_thumbnail(url=user.display_avatar.url)
+            embed.set_author(name="User profile")
+            
+            embed.add_field(name="", value=f"```javascript\nID: {user.id}```", inline=False)
+            
+            if member:
+                roles = [role.mention for role in member.roles[1:]]
+                embed.add_field(name="Roles", value=" • ".join(roles) or "None", inline=False)
+                embed.add_field(
+                    name="Joined server",
+                    value=f"{discord.utils.format_dt(member.joined_at, 'F')}\n({discord.utils.format_dt(member.joined_at, 'R')})",
+                    inline=True
+                )
+
+            embed.add_field(
+                name="Account created",
+                value=f"{discord.utils.format_dt(user.created_at, 'F')}\n({discord.utils.format_dt(user.created_at, 'R')})",
+                inline=True
+            )
+            
+            await ctx.send(embed=embed)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
     
     #################################
     ## Avatar Command
     #################################
-    @commands.command()
-    async def avatar(self, ctx, member: discord.Member = None):
+    @commands.command(aliases=['av', 'avi', 'pfp'])
+    async def avatar(self, ctx, user_id: str = None):
         """Get a user's avatar"""
-        member = member or ctx.author
-        embed = discord.Embed(title=f"{member.display_name}'s Avatar", color=member.color)
-        embed.set_image(url=member.avatar.url)
-        await ctx.send(embed=embed)
+        try:
+            if user_id is None:
+                user = ctx.author
+            else:
+                user_id = user_id.strip('<@!>')
+                user = await self.bot.fetch_user(int(user_id))
+
+            member = ctx.guild.get_member(user.id) if ctx.guild else None
+
+            embed = discord.Embed(
+                title=f"{user.display_name}'s Avatar", 
+                color=member.color if member else 0x2B2D31
+            )
+            embed.set_image(url=user.display_avatar.url)
+            await ctx.send(embed=embed)
+        except ValueError:
+            await ctx.send("Please provide a valid user ID or mention!")
+        except discord.NotFound:
+            await ctx.send("User not found!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Banner Command
     #################################
     @commands.command()
-    async def banner(self, ctx, member: discord.Member = None):
+    async def banner(self, ctx, user_id: str = None):
         """Get a user's banner"""
-        member = member or ctx.author
-        
-        user = await self.bot.fetch_user(member.id)
-        if not user.banner:
-            await ctx.send(f"{member.display_name} doesn't have a banner!")
-            return
-            
-        embed = discord.Embed(title=f"{member.display_name}'s Banner", color=member.color)
-        embed.set_image(url=user.banner.url)
-        await ctx.send(embed=embed)
+        try:
+            if user_id is None:
+                user = ctx.author
+            else:
+                user_id = user_id.strip('<@!>')
+                user = await self.bot.fetch_user(int(user_id))
+
+            if not user.banner:
+                await ctx.send(f"**{user.name}** doesn't have a banner!")
+                return
+
+            member = ctx.guild.get_member(user.id) if ctx.guild else None
+
+            embed = discord.Embed(
+                title=f"{user.display_name}'s Banner",
+                color=member.color if member else 0x2B2D31
+            )
+            embed.set_image(url=user.banner.url)
+            await ctx.send(embed=embed)
+        except ValueError:
+            await ctx.send("Please provide a valid user ID or mention!")
+        except discord.NotFound:
+            await ctx.send("User not found!")
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
 
     #################################
     ## Reminder Command
@@ -148,7 +179,7 @@ class Casual(commands.Cog):
         time_parts = re.findall(r'(\d+)([wdhms])', time_str.lower())
         
         if not time_parts:
-            await ctx.send("What are you doing?")
+            await ctx.send("Okay, but when?")
             return
             
         for value, unit in time_parts:
@@ -201,7 +232,7 @@ class Casual(commands.Cog):
             if reminder_id in self.active_reminders:
                 channel = self.bot.get_channel(ctx.channel.id)
                 if channel:
-                    await channel.send(f"# Reminder! {ctx.author.mention}\n{reminder_text}")
+                    await channel.send(f"# {reminder_text}\n-# Here is your reminder, {ctx.author.mention}")
                 del self.active_reminders[reminder_id]
                 
         self.bot.loop.create_task(remind())
@@ -244,108 +275,90 @@ class Casual(commands.Cog):
             
         await ctx.send(embed=embed)
 
-    #################################
-    ## Stopwatch Command
-    #################################
-    @commands.command(aliases=['sw'])
-    async def stopwatch(self, ctx):
-        """Start or stop the stopwatch"""
-        if not hasattr(self, 'stopwatches'):
-            self.stopwatches = {}
+    # #################################
+    # ## Server Info Command
+    # #################################
+    # @commands.command()
+    # @commands.guild_only()
+    # async def serverinfo(self, ctx):
+    #     """Display detailed server information"""
+    #     guild = ctx.guild
+        
+    #     total_members = guild.member_count
+    #     online_members = len([m for m in guild.members if m.status != discord.Status.offline])
+    #     text_channels = len(guild.text_channels)
+    #     voice_channels = len(guild.voice_channels)
+    #     categories = len(guild.categories)
+        
+    #     embed = discord.Embed(
+    #         title=f"Server Info - {guild.name}",
+    #         color=0x2B2D31,
+    #         timestamp=datetime.utcnow()
+    #     )
+        
+    #     if guild.icon:
+    #         embed.set_thumbnail(url=guild.icon.url)
             
-        if ctx.author.id not in self.stopwatches:
-            self.stopwatches[ctx.author.id] = int(time.time())
-            await ctx.send(f"{ctx.author.mention} Stopwatch started!")
-        else:
-            duration = int(time.time()) - self.stopwatches[ctx.author.id]
-            formatted_time = str(timedelta(seconds=duration))
-            await ctx.send(f"{ctx.author.mention} Stopwatch stopped!\nTime: **{formatted_time}**")
-            self.stopwatches.pop(ctx.author.id, None)
-
-    #################################
-    ## Server Info Command
-    #################################
-    @commands.command()
-    @commands.guild_only()
-    async def serverinfo(self, ctx):
-        """Display detailed server information"""
-        guild = ctx.guild
+    #     embed.add_field(
+    #         name="Owner", 
+    #         value=guild.owner.mention,
+    #         inline=True
+    #     )
+    #     embed.add_field(
+    #         name="Created On",
+    #         value=discord.utils.format_dt(guild.created_at, 'F'),
+    #         inline=True
+    #     )
         
-        total_members = guild.member_count
-        online_members = len([m for m in guild.members if m.status != discord.Status.offline])
-        text_channels = len(guild.text_channels)
-        voice_channels = len(guild.voice_channels)
-        categories = len(guild.categories)
+    #     embed.add_field(
+    #         name="Members",
+    #         value=f"Total: {total_members}\nOnline: {online_members}",
+    #         inline=True
+    #     )
         
-        embed = discord.Embed(
-            title=f"Server Info - {guild.name}",
-            color=0x2B2D31,
-            timestamp=datetime.utcnow()
-        )
+    #     embed.add_field(
+    #         name="Channels",
+    #         value=f"Text: {text_channels}\nVoice: {voice_channels}\nCategories: {categories}",
+    #         inline=True
+    #     )
         
-        if guild.icon:
-            embed.set_thumbnail(url=guild.icon.url)
+    #     embed.add_field(
+    #         name="Roles",
+    #         value=len(guild.roles),
+    #         inline=True
+    #     )
+        
+    #     if guild.features:
+    #         features = "\n".join(f"• {feature.replace('_', ' ').title()}" for feature in guild.features)
+    #         embed.add_field(
+    #             name="Features",
+    #             value=features,
+    #             inline=False
+    #         )
+        
+    #     if guild.premium_tier > 0:
+    #         boost_info = f"Level {guild.premium_tier}\nBoosts: {guild.premium_subscription_count}"
+    #         embed.add_field(
+    #             name="Server Boost",
+    #             value=boost_info,
+    #             inline=True
+    #         )
             
-        embed.add_field(
-            name="Owner", 
-            value=guild.owner.mention,
-            inline=True
-        )
-        embed.add_field(
-            name="Created On",
-            value=discord.utils.format_dt(guild.created_at, 'F'),
-            inline=True
-        )
+    #     verification = {
+    #         discord.VerificationLevel.none: "None",
+    #         discord.VerificationLevel.low: "Low",
+    #         discord.VerificationLevel.medium: "Medium",
+    #         discord.VerificationLevel.high: "High",
+    #         discord.VerificationLevel.highest: "Highest"
+    #     }
+    #     embed.add_field(
+    #         name="Security",
+    #         value=f"Verification: {verification[guild.verification_level]}",
+    #         inline=True
+    #     )
         
-        embed.add_field(
-            name="Members",
-            value=f"Total: {total_members}\nOnline: {online_members}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Channels",
-            value=f"Text: {text_channels}\nVoice: {voice_channels}\nCategories: {categories}",
-            inline=True
-        )
-        
-        embed.add_field(
-            name="Roles",
-            value=len(guild.roles),
-            inline=True
-        )
-        
-        if guild.features:
-            features = "\n".join(f"• {feature.replace('_', ' ').title()}" for feature in guild.features)
-            embed.add_field(
-                name="Features",
-                value=features,
-                inline=False
-            )
-        
-        if guild.premium_tier > 0:
-            boost_info = f"Level {guild.premium_tier}\nBoosts: {guild.premium_subscription_count}"
-            embed.add_field(
-                name="Server Boost",
-                value=boost_info,
-                inline=True
-            )
-            
-        verification = {
-            discord.VerificationLevel.none: "None",
-            discord.VerificationLevel.low: "Low",
-            discord.VerificationLevel.medium: "Medium",
-            discord.VerificationLevel.high: "High",
-            discord.VerificationLevel.highest: "Highest"
-        }
-        embed.add_field(
-            name="Security",
-            value=f"Verification: {verification[guild.verification_level]}",
-            inline=True
-        )
-        
-        embed.set_footer(text=f"ID: {guild.id}")
-        await ctx.send(embed=embed)
+    #     embed.set_footer(text=f"ID: {guild.id}")
+    #     await ctx.send(embed=embed)
 
     #################################
     ## AFK System
