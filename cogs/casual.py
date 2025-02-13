@@ -18,18 +18,36 @@ class Casual(commands.Cog):
     #################################
     ## About Command
     #################################
-    @commands.command()
+    @commands.command(aliases=['info', 'abt'])
     async def about(self, ctx):
-        """About Kael"""
+        """Information about Cro bot"""
+        member = ctx.guild.get_member(self.bot.user.id)
+
         embed = discord.Embed(
-            title="About Cro",
+            title="Cro is a multipurpose Discord bot",
             description=(
-                "Work in progress"
+                "Developed with 💜 by [CursedSen](https://github.com/CursedSen) as a hobby project.\n\n"
+                "To use any command, simply type a prefix followed by the command name:\n"
+                "```javascript\n?command <arg1> <arg2> ...```\n"
+                "Prefixes consist of `?`, `!`, `%` and `$`\nYou can set a custom prefix\n"
             ),
-            color=0x2B2D31
+            color=member.color if member else 0x2B2D31
         )
-        embed.set_thumbnail(url=self.bot.user.avatar.url)
-        embed.set_footer(text=f"Buh")
+
+        embed.add_field(
+            name="Links",
+            value=(
+                "[Add to server](https://discord.com/oauth2/authorize?client_id=585714425529630740) • "
+                "[Support](https://github.com/CursedSen/Cro-bot/issues) • "
+                "[GitHub](https://github.com/CursedSen/Cro-bot)"
+            ),
+            inline=False
+        )
+        
+        embed.set_author(name="About Cro")
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        embed.set_footer(text="How do I use versions?")
+
         await ctx.send(embed=embed)
 
     #################################
@@ -46,7 +64,7 @@ class Casual(commands.Cog):
     @commands.command()
     async def invite(self, ctx):
         """Invite Cro to your server"""
-        await ctx.send("You can click on my profile, or click [this link](https://discord.com/oauth2/authorize?client_id=1293508738036142091) to invite me to your server!")
+        await ctx.send("You can click on my profile, or click [this link](https://discord.com/oauth2/authorize?client_id=585714425529630740) to invite me to your server!")
 
     #################################
     ## Ping Command
