@@ -541,5 +541,86 @@ class Casual(commands.Cog):
         
         await ctx.send(embed=embed)
 
+    #################################
+    ## GitHub Command
+    #################################
+    @commands.command()
+    async def github(self, ctx, *, username: str):
+        """Display a GitHub profile
+        Usage: !github <username>"""
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.github.com/users/{username}") as resp:
+                if resp.status != 200:
+                    await ctx.send("Could not find GitHub profile!")
+                    return
+                data = await resp.json()
+                
+        embed = discord.Embed(
+            title=data['login'],
+            url=data['html_url'],
+            description=data.get('bio'),
+            color=0x2B2D31
+        )
+        
+        embed.set_thumbnail(url=data['avatar_url'])
+        
+        if data.get('name'):
+            embed.add_field(
+                name="Name",
+                value=data['name'],
+                inline=True
+            )
+            
+        if data.get('location'):
+            embed.add_field(
+                name="Location",
+                value=data['location'],
+                inline=True
+            )
+            
+        if data.get('company'):
+            embed.add_field(
+                name="Company",
+                value=data['company'],
+                inline=True
+            )
+            
+        stats = [
+            f"**{data['public_repos']}** repos",
+            f"**{data['followers']}** followers",
+            f"**{data['following']}** following"
+        ]
+        embed.add_field(
+            name="Stats",
+            value=" • ".join(stats),
+            inline=False
+        )
+        
+        if data.get('created_at'):
+            created_at = datetime.fromisoformat(data['created_at'].replace('Z', '+00:00'))
+            embed.add_field(
+                name="Joined GitHub",
+                value=discord.utils.format_dt(created_at, 'R'),
+                inline=True
+            )
+        
+        links = [
+            f"[Profile]({data['html_url']})",
+            f"[Repositories]({data['html_url']}?tab=repositories)",
+            f"[Stars]({data['html_url']}?tab=stars)"
+        ]
+        
+        if data.get('blog'):
+            links.append(f"[Website]({data['blog']})")
+            
+        embed.add_field(
+            name="Quick Links", 
+            value=" • ".join(links),
+            inline=False
+        )
+        
+        await ctx.send(embed=embed)
+    
 async def setup(bot):
     await bot.add_cog(Casual(bot))
