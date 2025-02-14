@@ -895,11 +895,11 @@ class Fun(commands.Cog):
     @commands.command()
     async def snipe(self, ctx):
         """Shows the last deleted message in the channel"""
-        handlers = self.bot.get_cog('EventHandlers')
-        if not handlers:
+        message_events = self.bot.get_cog('MessageEvents')
+        if not message_events:
             return
             
-        guild_deletes = handlers.deleted_messages.get(ctx.guild.id, {})
+        guild_deletes = message_events.deleted_messages.get(ctx.guild.id, {})
         deleted_msg = guild_deletes.get(ctx.channel.id)
         
         if not deleted_msg:
@@ -908,8 +908,7 @@ class Fun(commands.Cog):
             
         embed = discord.Embed(
             description=deleted_msg['content'] or "*No text content*",
-            color=0x2B2D31,
-            timestamp=deleted_msg['timestamp']
+            color=0x2B2D31
         )
         
         embed.set_author(
@@ -1318,4 +1317,4 @@ class Fun(commands.Cog):
         await ctx.send(embed=embed)
 
 async def setup(bot):
-    await bot.add_cog(Fun(bot)) 
+    await bot.add_cog(Fun(bot))
