@@ -184,8 +184,7 @@ class Casual(commands.Cog):
     #################################
     @commands.command(aliases=['remind', 'remindme'])
     async def reminder(self, ctx, time_str: str, *, reminder_text: str):
-        """Set a reminder
-        Example: !reminder 2h30m check the oven"""
+        """Set a reminder"""
         reminder_text = discord.utils.escape_mentions(reminder_text)
         reminder_text = discord.utils.escape_markdown(reminder_text)
         
@@ -425,13 +424,35 @@ class Casual(commands.Cog):
                     f"{mention.display_name} is AFK: **{afk_data['message']}**\n**{time_str}**"
                 )
 
+
+    @commands.command()
+    async def emote(self, ctx, emote: str):
+        """Get info about an emote"""
+        try:
+            emoji = await commands.EmojiConverter().convert(ctx, emote)
+            
+            embed = discord.Embed(title="Emoji Info", color=0x2B2D31)
+            embed.add_field(name="Name", value=f"`{emoji.name}`", inline=True)
+            embed.add_field(name="ID", value=f"`{emoji.id}`", inline=True)
+            embed.add_field(name="Server", value=discord.utils.escape_markdown(emoji.guild.name), inline=True)
+            embed.add_field(name="Created", value=discord.utils.format_dt(emoji.created_at, 'R'), inline=True)
+            embed.add_field(name="URL", value=f"[Link]({emoji.url})", inline=True)
+            embed.set_thumbnail(url=emoji.url)
+            
+            await ctx.send(embed=embed)
+            
+        except commands.BadArgument:
+            if len(emote) == 1 or emote.startswith('\\U'):
+                await ctx.send("That's a unicode emoji! I can only get info about custom server emotes.")
+            else:
+                await ctx.send("That's not a valid emoji!")
+
     #################################
     ## Steam Command
     #################################
     @commands.command()
     async def steam(self, ctx, *, steam_id: str):
-        """Display a Steam profile
-        Usage: !steam <steamID/customURL/profileURL>"""
+        """Display a Steam profile"""
         
         if not STEAM_API_KEY:
             await ctx.send("Steam API key not configured or invalid!")
@@ -546,8 +567,7 @@ class Casual(commands.Cog):
     #################################
     @commands.command()
     async def github(self, ctx, *, username: str):
-        """Display a GitHub profile
-        Usage: !github <username>"""
+        """Display a GitHub profile"""
         
         async with aiohttp.ClientSession() as session:
             async with session.get(f"https://api.github.com/users/{username}") as resp:
