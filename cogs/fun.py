@@ -676,19 +676,7 @@ class Fun(commands.Cog):
             "( ง ᵒ̌皿ᵒ̌)ง⁼³₌₃"
         ]
         await ctx.send(f"*{ctx.author.name} is grumpy* {random.choice(grumps)}")
-
-    @commands.command()
-    async def sparkle(self, ctx, *, thing: str = None):
-        """Make something sparkle"""
-        if thing:
-            if '@everyone' in thing or '@here' in thing:
-                await ctx.send("Nice try!")
-                return
-            thing = discord.utils.escape_mentions(thing)
-            await ctx.send(f"*{ctx.author.name} sprinkles sparkles on {thing}* ✧･ﾟ: *✧･ﾟ♡*(◕‿◕✿)*♡･ﾟ✧*:･ﾟ✧")
-        else:
-            await ctx.send(f"*{ctx.author.name} sparkles* ✧･ﾟ: *✧･ﾟ♡*(◕‿◕✿)*♡･ﾟ✧*:･ﾟ✧")
-
+        
     ###########################
     ## Text Manipulation Commands
     ###########################
@@ -854,6 +842,7 @@ class Fun(commands.Cog):
     ## Utility Commands
     ###########################
     @commands.command()
+    @PermissionHandler.has_permissions(Administrator=True)
     async def echo(self, ctx, *, message: str):
         """Echo a message"""
         if '@everyone' in message or '@here' in message:
@@ -877,20 +866,7 @@ class Fun(commands.Cog):
 
         choice = random.choice(options)
         
-        embed = EmbedBuilder(
-            title="🤔 Choice Made",
-            color=discord.Color.blue()
-        ).add_field(
-            name="Options",
-            value="\n".join(f"• {TextFormatter.clean_text(opt)}" for opt in options),
-            inline=False
-        ).add_field(
-            name="I choose",
-            value=f"**{TextFormatter.clean_text(choice)}**",
-            inline=False
-        )
-        
-        await ctx.send(embed=embed.build())
+        await ctx.send(f"**{choice}**")
 
     @commands.command()
     async def snipe(self, ctx):
@@ -938,139 +914,6 @@ class Fun(commands.Cog):
             return
             
         await ctx.send(f"<https://letmegooglethat.com/?q={encoded_terms}>")
-
-    ###########################
-    ## Fun Rating Commands
-    ###########################
-    @commands.command()
-    async def rate(self, ctx, *, thing: str):
-        """Rate anything out of 10"""
-        if '@everyone' in thing or '@here' in thing:
-            await ctx.send("Nice try!")
-            return
-        thing = discord.utils.escape_mentions(thing)
-        
-        seed = sum(ord(char) for char in thing.lower())
-        random.seed(seed)
-        
-        rating = random.randint(0, 10)
-        emoji = "💫" if rating >= 8 else "⭐" if rating >= 5 else "💢"
-        
-        await ctx.send(f"I rate {thing} a **{rating}/10** {emoji}")
-        
-        random.seed()
-
-    @commands.command()
-    async def judge(self, ctx, *, thing: str):
-        """Get judged"""
-        if '@everyone' in thing or '@here' in thing:
-            await ctx.send("Nice try!")
-            return
-        thing = discord.utils.escape_mentions(thing)
-        
-        judgements = [
-            "seems kinda sus",
-            "pretty based ngl",
-            "cringe",
-            "absolutely cursed",
-            "needs to touch grass",
-            "certified classic",
-            "wouldn't recommend",
-            "literally me",
-            "peak content",
-            "mid"
-        ]
-        
-        seed = sum(ord(char) for char in thing.lower())
-        random.seed(seed)
-        judgement = random.choice(judgements)
-        random.seed()
-        
-        await ctx.send(f"**{thing}** {judgement}")
-
-    @commands.command(aliases=['vibe'])
-    async def vibecheck(self, ctx, member: discord.Member = None):
-        """Perform a totally scientific vibe check"""
-        member = member or ctx.author
-        
-        data = {
-            "username_length": len(member.name),
-            "avatar_hash": hash(str(member.display_avatar.url)),
-            "created_at": int(member.created_at.timestamp()),
-            "discriminator": int(member.discriminator) if member.discriminator != '0' else 0,
-            "roles": len(member.roles),
-            "color": member.color.value if member.color != discord.Color.default() else 0,
-            "status": hash(str(member.status)),
-            "activities": len(member.activities) if member.activities else 0
-        }
-        
-        day_seed = int(datetime.now().strftime("%Y%m%d"))
-        random.seed(sum(data.values()) + day_seed)
-        
-        vibes = {
-            "chaos": random.randint(0, 100),
-            "swag": random.randint(0, 100),
-            "gaming": random.randint(0, 100),
-            "touch_grass": random.randint(0, 100),
-            "sleep": random.randint(0, 100),
-            "meme": random.randint(0, 100),
-            "productivity": random.randint(0, 100),
-            "creativity": random.randint(0, 100)
-        }
-        
-        def get_meter(value):
-            blocks = ["░", "▒", "▓", "█"]
-            meter = ""
-            segments = 10
-            for i in range(segments):
-                threshold = (i + 1) * (100 / segments)
-                if value >= threshold:
-                    block_index = min(3, int((value - threshold) / (100 / segments / 1.5)))
-                    meter += blocks[block_index]
-                else:
-                    meter += blocks[0]
-            return meter
-        
-        avg_vibe = sum(vibes.values()) / len(vibes)
-        if avg_vibe >= 90:
-            grade = "S+"
-            conclusion = "Vibes have transcended reality ✨"
-        elif avg_vibe >= 80:
-            grade = "S"
-            conclusion = "Elite vibes detected"
-        elif avg_vibe >= 70:
-            grade = "A"
-            conclusion = "Certified fresh vibes"
-        elif avg_vibe >= 60:
-            grade = "B"
-            conclusion = "Vibing respectfully"
-        elif avg_vibe >= 50:
-            grade = "C"
-            conclusion = "Vibes are a bit sus"
-        elif avg_vibe >= 40:
-            grade = "D"
-            conclusion = "Vibes need maintenance"
-        else:
-            grade = "F"
-            conclusion = "Vibe check failed successfully"
-        
-        embed = discord.Embed(
-            title=f"Vibe Check: {member.display_name}",
-            description=f"Overall Grade: **{grade}** ({avg_vibe:.1f}%)",
-            color=member.color if member.color != discord.Color.default() else 0x2B2D31
-        )
-        
-        for name, value in vibes.items():
-            embed.add_field(
-                name=name.replace('_', ' ').title(),
-                value=f"`{get_meter(value)}` {value}%",
-                inline=False
-            )
-        
-        embed.set_footer(text=conclusion)
-        embed.set_thumbnail(url=member.display_avatar.url)
-        
-        await ctx.send(embed=embed)
 
     ###########################
     ## Miscellaneous Commands
@@ -1161,28 +1004,6 @@ class Fun(commands.Cog):
             await ctx.send("An error occurred while fetching the definition.")
 
     @commands.command()
-    async def emote(self, ctx, emote: str):
-        """Get info about an emote"""
-        try:
-            emoji = await commands.EmojiConverter().convert(ctx, emote)
-            
-            embed = discord.Embed(title="Emoji Info", color=0x2B2D31)
-            embed.add_field(name="Name", value=f"`{emoji.name}`", inline=True)
-            embed.add_field(name="ID", value=f"`{emoji.id}`", inline=True)
-            embed.add_field(name="Server", value=discord.utils.escape_markdown(emoji.guild.name), inline=True)
-            embed.add_field(name="Created", value=discord.utils.format_dt(emoji.created_at, 'R'), inline=True)
-            embed.add_field(name="URL", value=f"[Link]({emoji.url})", inline=True)
-            embed.set_thumbnail(url=emoji.url)
-            
-            await ctx.send(embed=embed)
-            
-        except commands.BadArgument:
-            if len(emote) == 1 or emote.startswith('\\U'):
-                await ctx.send("That's a unicode emoji! I can only get info about custom server emotes.")
-            else:
-                await ctx.send("That's not a valid emoji!")
-
-    @commands.command()
     async def patch(self, ctx, member: discord.Member = None):
         """Generate patch notes for a user"""
         member = member or ctx.author
@@ -1233,86 +1054,6 @@ class Fun(commands.Cog):
         embed.description += "\n\n" + "\n".join(selected_changes)
         embed.set_footer(text="Known issues: Everything")
         embed.set_thumbnail(url=member.display_avatar.url)
-        
-        await ctx.send(embed=embed)
-
-    @commands.command()
-    async def conspiracy(self, ctx):
-        """Generate a random conspiracy theory"""
-        
-        subjects = [
-            "Discord light theme users",
-            "People who don't use dark mode",
-            "Users who read the TOS",
-            "People who touch grass",
-            "Discord developers",
-            "Bot developers",
-            "People who sleep properly",
-            "Offline status users",
-            "People who don't use emojis",
-            "Users with perfect ping",
-            "People who never misclick"
-        ]
-        
-        actions = [
-            "are secretly plotting to",
-            "have been working for years to",
-            "don't want you to know they",
-            "have formed an alliance to",
-            "have discovered how to",
-            "are hiding the truth about how they",
-            "have been pretending to",
-            "are using bots to",
-            "have created an algorithm to",
-            "have been spending millions to"
-        ]
-        
-        objects = [
-            "replace all emojis with comic sans",
-            "make everyone use light theme",
-            "delete all the memes",
-            "force everyone to touch grass",
-            "turn off everyone's RGB lighting",
-            "make ping permanently 999ms",
-            "remove all keyboard shortcuts",
-            "implement mandatory grass touching",
-            "make sleep schedules actually healthy",
-            "fix all the bugs (suspicious)",
-            "make everyone read the terms of service",
-            "eliminate copy-paste functionality",
-            "replace all servers with book clubs",
-            "make everyone go outside",
-            "enforce proper posture at desks"
-        ]
-        
-        evidence = [
-            "I saw it in a meme once",
-            "Source: trust me bro",
-            "My cat told me",
-            "It was revealed to me in a dream",
-            "A random Discord status told me",
-            "The loading screen tips confirmed it",
-            "My RGB lights flickered in morse code",
-            "My high ping is proof",
-            "The bugs are actually features",
-            "The discord loading messages speak the truth",
-            "A bot whispered it to me",
-            "The server hamsters leaked this info",
-            "I made it the fuck up!"
-        ]
-        
-        theory = (
-            f"{random.choice(subjects)} {random.choice(actions)} "
-            f"{random.choice(objects)}!\n\n"
-            f"*Evidence: {random.choice(evidence)}*"
-        )
-        
-        embed = discord.Embed(
-            title="CONSPIRACY ALERT",
-            description=theory,
-            color=0x2B2D31
-        )
-        embed.set_footer(text="Wake up sheeple!")
         
         await ctx.send(embed=embed)
 
