@@ -1,6 +1,6 @@
 TOKEN = "bot token"
 
-BOT_MASTERS = [your user id]
+BOT_MASTERS = ["your user id"]
 STEAM_API_KEY = "steam api key"
 # go to https://steamcommunity.com/dev/apikey for this
 

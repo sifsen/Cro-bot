@@ -742,7 +742,7 @@ class Fun(commands.Cog):
 
     @commands.command()
     async def uwu(self, ctx, *, text: str = None):
-        """UwU-ify text (can reply to a message)"""
+        """UwU-ify text"""
         if text is None:
             if not ctx.message.reference:
                 await ctx.send("Please provide text or reply to a message!")
