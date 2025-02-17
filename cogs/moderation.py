@@ -865,6 +865,9 @@ class Moderation(commands.Cog):
         """Change a member's nickname"""
         old_nick = member.display_name
         
+        if new_nick and len(new_nick) > 32:
+            return await ctx.send("Nickname cannot exceed 32 characters")
+
         try:
             await member.edit(nick=new_nick)
             if new_nick is None:
