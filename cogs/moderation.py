@@ -1102,7 +1102,7 @@ class Moderation(commands.Cog):
             if not warnings:
                 return await ctx.send(f"**{member.name}** has no warnings.")
                 
-            embed = discord.Embed(title=f"Warnings for {member.name}", color=discord.Color.yellow())
+            embed = discord.Embed(title=f"Warnings for **{member.name}**", color=discord.Color.yellow())
         else:
             warnings = [log for log in mod_logs.values() if log.get('action') == 'Warn']
             if not warnings:
