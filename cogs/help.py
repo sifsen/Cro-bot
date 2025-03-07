@@ -19,20 +19,7 @@ class Help(commands.Cog):
             return
             
         await ctx.send(
-            "**You asked for help?**\n"
-            "Default prefixes: `%`, `$`, `!`, `?`, `.`\n"
-            "Set custom prefix with `config prefix <prefix>`\n\n"
-            "**Quick Tips**\n"
-            "- `help <command>` - Detailed command help\n"
-            "- `commands` - List all commands\n"
-            "- `tag` - Use custom tags/commands\n"
-            "- `remindme` - Set reminders\n"
-            "- `automod` - Auto-moderate messages\n"
-            "- `config` - Server settings\n\n"
-            "**Links**\n"
-            "- [Documentation](https://sen.wtf/docs/Cro)\n"
-            "- [Repository](<https://github.com/CursedSen/Cro-bot>)"
-
+            W.I.P
         )
 
     @commands.command()
