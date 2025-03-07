@@ -32,7 +32,6 @@ class Moderation(commands.Cog):
             self.case_counter = 0
         
         unique_num = (current_time << 16) | (self.case_counter << 8) | random.randint(0, 255)
-        
         case_id = base64.b32encode(unique_num.to_bytes(8, 'big')).decode('utf-8').rstrip('=')[:8]
         return case_id
 
@@ -46,10 +45,7 @@ class Moderation(commands.Cog):
 
         guild_id = str(guild_id)
         if guild_id not in records:
-            records[guild_id] = {
-                'cases': {},
-                'users': {}
-            }
+            records[guild_id] = {'cases': {}, 'users': {}}
 
         case_id = self.generate_case_id()
         action['case_id'] = case_id
@@ -190,9 +186,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Kick Command
-    #################################      
     @commands.command(aliases=['punch'])
     @PermissionHandler.has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason=None):
@@ -213,16 +206,13 @@ class Moderation(commands.Cog):
 
                 try:
                     await member.kick(reason=reason)
-                    
                     case_id = await self.save_mod_action(ctx.guild.id, {
                         'user_id': member.id,
                         'mod_id': ctx.author.id,
                         'action': 'Kick',
                         'reason': reason
                     })
-                    
                     await self.log_mod_action(ctx, "Kicked", member, case_id, reason=reason)
-                    
                     await ctx.send(f"**{member.name}** was kicked")
                     await interaction.message.delete()
                 except discord.Forbidden:
@@ -247,13 +237,9 @@ class Moderation(commands.Cog):
                 view=confirm_view
             )
 
-
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Ban Command
-    #################################   
     async def get_or_fetch_user(self, ctx, user_input: str) -> Union[discord.Member, discord.User, None]:
         """Helper function to get a user from various input formats"""
         user = None
@@ -261,17 +247,14 @@ class Moderation(commands.Cog):
         if user_input.startswith('<@') and user_input.endswith('>'):
             user_id = int(user_input[2:-1].replace('!', ''))
             user = ctx.guild.get_member(user_id) or await self.bot.fetch_user(user_id)
-        
         elif user_input.isdigit():
             user_id = int(user_input)
             user = ctx.guild.get_member(user_id) or await self.bot.fetch_user(user_id)
-            
         else:
             user = discord.utils.find(
                 lambda m: str(m) == user_input or m.name == user_input,
                 ctx.guild.members
             )
-            
             if not user and '#' in user_input:
                 try:
                     user = await self.bot.fetch_user(user_input)
@@ -283,7 +266,7 @@ class Moderation(commands.Cog):
     @commands.command(aliases=['kill'])
     @PermissionHandler.has_permissions(ban_members=True)
     async def ban(self, ctx, user_input: str, *, reason=None):
-        """Ban a user from the server (can ban users not in the server)"""
+        """Ban a user from the server"""
         try:
             user = await self.get_or_fetch_user(ctx, user_input)
             if not user:
@@ -307,7 +290,6 @@ class Moderation(commands.Cog):
 
                 try:
                     await ctx.guild.ban(user, reason=reason)
-                    
                     case_id = await self.save_mod_action(ctx.guild.id, {
                         'user_id': user.id,
                         'mod_id': ctx.author.id,
@@ -322,14 +304,17 @@ class Moderation(commands.Cog):
                     if reason:
                         embed.add_field(name="Reason", value=reason)
 
-                    await user.send(embed=embed)
+                    try:
+                        await user.send(embed=embed)
+                    except discord.HTTPException:
+                        pass
                     
                     await self.log_mod_action(ctx, "Ban", user, case_id, reason=reason)
-                    
+                
                     with open('data/strings.json', 'r') as f:
                         strings = json.load(f)
                         action = random.choice(strings['user_was_x'])
-                    
+                
                     await confirm_message.edit(content=f"**{user}** was {action}", view=None)
                     await interaction.response.defer()
                 except Exception as e:
@@ -342,7 +327,6 @@ class Moderation(commands.Cog):
 
                 try:
                     await interaction.response.defer()
-                    
                     dm_message = (
                         f"You were banned from {ctx.guild.name} because your account showed signs of being compromised.\n\n"
                         "For your security, please:\n"
@@ -354,27 +338,23 @@ class Moderation(commands.Cog):
                     )
                     try:
                         await user.send(dm_message)
-                    except:
+                    except discord.HTTPException:
                         pass
-
+                
                     await user.ban(reason="Compromised account", delete_message_days=1)
-                    
                     case_id = await self.save_mod_action(ctx.guild.id, {
                         'user_id': user.id,
                         'mod_id': ctx.author.id,
                         'action': 'Ban',
                         'reason': "Compromised account"
                     })
-                    
                     await self.log_mod_action(ctx, "Ban", user, case_id, reason="Compromised account")
-                    
                     await asyncio.sleep(2)
                     await ctx.guild.unban(user)
-                    
                     await interaction.message.edit(f"**{user}** was banned for compromised account")
                 except Exception as e:
                     await interaction.message.edit(f"Error handling compromised account: {str(e)}")
-
+            
             async def cancel_callback(interaction):
                 if interaction.user != ctx.author:
                     await interaction.response.send_message("This is not for you!", ephemeral=True)
@@ -395,9 +375,36 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Unban Command
-    #################################   
+    @commands.command(aliases=['sban'])
+    @PermissionHandler.has_permissions(ban_members=True)
+    async def silentban(self, ctx, user_input: str, *, reason=None):
+        """Silently ban a user from the server without notification"""
+        try:
+            user = await self.get_or_fetch_user(ctx, user_input)
+            if not user:
+                await ctx.reply("Could not find that user. Please provide a valid user ID, mention, or username.")
+                return
+
+            if isinstance(user, discord.Member):
+                if user.top_role >= ctx.author.top_role:
+                    await ctx.reply("You cannot ban someone with a higher or equal role!")
+                    return
+
+            await ctx.guild.ban(user, reason=reason or "Silent ban")
+            case_id = await self.save_mod_action(ctx.guild.id, {
+                'user_id': user.id,
+                'mod_id': ctx.author.id,
+                'action': 'Silent Ban',
+                'reason': reason or "No reason provided"
+            })
+            await self.log_mod_action(ctx, "Silent Ban", user, case_id, reason=reason or "No reason provided")
+            await ctx.reply(f"**{user}** has been silently banned.", ephemeral=True)
+
+        except discord.Forbidden:
+            await ctx.reply("I don't have permission to ban that user!")
+        except Exception as e:
+            await ctx.reply(f"An error occurred: {str(e)}")
+
     @commands.command(aliases=['pardon'])
     @PermissionHandler.has_permissions(ban_members=True)
     async def unban(self, ctx, *, user_input):
@@ -430,9 +437,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Mute Command
-    #################################   
     @commands.command(aliases=['silence'])
     @PermissionHandler.has_permissions(moderate_members=True)
     async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason=None):
@@ -485,9 +489,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Unmute Command
-    #################################   
     @commands.command(aliases=['unsilence', 'untimeout'])
     @PermissionHandler.has_permissions(moderate_members=True)
     async def unmute(self, ctx, member: discord.Member, *, reason=None):
@@ -519,9 +520,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Role Command (Fuzzy Search)
-    #################################
     def find_best_match(self, input_str, roles):
         """Find the best matching role using fuzzy matching"""
         search_term = input_str.lower()
@@ -530,12 +528,8 @@ class Moderation(commands.Cog):
 
         for role in roles:
             role_name = role.name.lower()
-
             if role_name in search_term or search_term in role_name:
-                similarity = max(
-                    len(role_name) / len(search_term),
-                    len(search_term) / len(role_name)
-                )
+                similarity = max(len(role_name) / len(search_term), len(search_term) / len(role_name))
                 if similarity > highest_similarity:
                     highest_similarity = similarity
                     best_match = role
@@ -555,9 +549,6 @@ class Moderation(commands.Cog):
 
         return best_match
 
-    #################################
-    ## Role Command
-    ################################
     @commands.command()
     @PermissionHandler.has_permissions(manage_roles=True)
     async def role(self, ctx, member: discord.Member, *, role_input: str):
@@ -570,11 +561,7 @@ class Moderation(commands.Cog):
             elif role_input.isdigit():
                 role = ctx.guild.get_role(int(role_input))
             else:
-                role = discord.utils.find(
-                    lambda r: r.name.lower() == role_input.lower(), 
-                    ctx.guild.roles
-                )
-
+                role = discord.utils.find(lambda r: r.name.lower() == role_input.lower(), ctx.guild.roles)
                 if not role:
                     role = self.find_best_match(role_input, ctx.guild.roles)
 
@@ -598,9 +585,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Purge Command
-    #################################
     @commands.group(invoke_without_command=True)
     @PermissionHandler.has_permissions(manage_messages=True)
     async def purge(self, ctx, search: int = 100, member: discord.Member = None):
@@ -753,29 +737,19 @@ class Moderation(commands.Cog):
         
         await ctx.send(f"Deleted {count} messages")
 
-    #################################
-    ## Add Note Command
-    #################################
     @commands.command(aliases=['setnote'])
     @PermissionHandler.has_permissions(kick_members=True)
     async def note(self, ctx, member: Union[discord.Member, discord.User], *, note: str):
         """Add a note to a user's record"""
-        case_id = await self.save_mod_action(
-            ctx.guild.id,
-            {
-                'action': 'Note',
-                'user_id': member.id,
-                'mod_id': ctx.author.id,
-                'reason': note
-            }
-        )
-        
+        case_id = await self.save_mod_action(ctx.guild.id, {
+            'action': 'Note',
+            'user_id': member.id,
+            'mod_id': ctx.author.id,
+            'reason': note
+        })
         await self.log_mod_action(ctx, "Note", member, case_id, reason=note)
         await ctx.reply(f"Added note to **{member.name}**'s record")
 
-    #################################
-    ## Lock Command
-    #################################
     @commands.command()
     @PermissionHandler.has_permissions(manage_channels=True)
     async def lock(self, ctx, channel: discord.TextChannel = None):
@@ -787,7 +761,6 @@ class Moderation(commands.Cog):
             if not overwrites.send_messages is False:
                 overwrites.send_messages = False
                 await channel.set_permissions(ctx.guild.default_role, overwrite=overwrites)
-
                 await ctx.send(f"{channel.mention} has been locked.")
             else:
                 await ctx.send(f"{channel.mention} is already locked.")
@@ -797,9 +770,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Unlock Command
-    #################################
     @commands.command()
     @PermissionHandler.has_permissions(manage_channels=True)
     async def unlock(self, ctx, channel: discord.TextChannel = None):
@@ -811,7 +781,6 @@ class Moderation(commands.Cog):
             if overwrites.send_messages is False:
                 overwrites.send_messages = None
                 await channel.set_permissions(ctx.guild.default_role, overwrite=overwrites)
-                
                 await ctx.send(f"{channel.mention} has been unlocked.")
             else:
                 await ctx.send(f"{channel.mention} is not locked.")
@@ -821,9 +790,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Warn Command
-    #################################   
     @commands.command()
     @PermissionHandler.has_permissions(kick_members=True)
     async def warn(self, ctx, member: discord.Member, *, reason=None):
@@ -832,15 +798,12 @@ class Moderation(commands.Cog):
             await ctx.reply("You cannot warn someone with a higher or equal role!")
             return
         
-        case_id = await self.save_mod_action(
-            ctx.guild.id,
-            {
-                'action': 'Warn',
-                'user_id': member.id,
-                'mod_id': ctx.author.id,
-                'reason': reason
-            }
-        )
+        case_id = await self.save_mod_action(ctx.guild.id, {
+            'action': 'Warn',
+            'user_id': member.id,
+            'mod_id': ctx.author.id,
+            'reason': reason
+        })
         
         try:
             embed = discord.Embed(
@@ -848,7 +811,6 @@ class Moderation(commands.Cog):
                 color=discord.Color.yellow()
             )
             if reason:
-
                 embed.add_field(name="Reason", value=reason)
             await member.send(embed=embed)
         except:
@@ -857,9 +819,6 @@ class Moderation(commands.Cog):
         await self.log_mod_action(ctx, "Warn", member, case_id, reason=reason)
         await ctx.reply(f"Warned **{member.name}**" + (f" for: **{reason}**" if reason else ""))
 
-    #################################
-    ## Nickname Command
-    #################################
     @commands.command(aliases=['nick'])
     async def nickname(self, ctx: commands.Context, member: discord.Member, *, new_nick: str = None):
         """Change a member's nickname"""
@@ -877,9 +836,6 @@ class Moderation(commands.Cog):
         except discord.Forbidden:
             await ctx.send("I don't have permission to change that user's nickname")
 
-    #################################
-    ## Softban Command
-    #################################   
     @commands.command()
     @PermissionHandler.has_permissions(ban_members=True)
     async def softban(self, ctx, member: discord.Member, days: int = 2, *, reason=None):
@@ -906,7 +862,6 @@ class Moderation(commands.Cog):
                         'action': 'Softban',
                         'reason': reason
                     })
-                    
                     await self.log_mod_action(ctx, "Softbanned", member, case_id, reason=reason)
                     await ctx.guild.unban(member)
                     
@@ -940,9 +895,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Tempban Command
-    #################################   
     @commands.command()
     @PermissionHandler.has_permissions(ban_members=True)
     async def tempban(self, ctx, member: discord.Member, duration: str, days: int = 2, *, reason=None):
@@ -990,9 +942,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    #################################
-    ## Massban Command
-    #################################   
     @commands.command()
     @PermissionHandler.has_permissions(ban_members=True)
     async def massban(self, ctx, days: int = 2, *, args):
@@ -1084,9 +1033,6 @@ class Moderation(commands.Cog):
             view=confirm_view
         )
 
-    #################################
-    ## Warning Management Commands
-    #################################
     @commands.group(invoke_without_command=True)
     @PermissionHandler.has_permissions(kick_members=True)
     async def warns(self, ctx, member: discord.Member = None):
@@ -1095,27 +1041,21 @@ class Moderation(commands.Cog):
         mod_logs = settings.get('mod_logs', {})
         
         if member:
-            warnings = [
-                log for log in mod_logs.values()
-                if log.get('action') == 'Warn' and log.get('user_id') == member.id
-            ]
+            warnings = [log for log in mod_logs.values() if log.get('action') == 'Warn' and log.get('user_id') == member.id]
             if not warnings:
                 return await ctx.send(f"**{member.name}** has no warnings.")
-                
             embed = discord.Embed(title=f"Warnings for **{member.name}**", color=discord.Color.yellow())
         else:
             warnings = [log for log in mod_logs.values() if log.get('action') == 'Warn']
             if not warnings:
                 return await ctx.send("No warnings in this server.")
-                
             embed = discord.Embed(title="Server Warnings", color=discord.Color.yellow())
             
         for warn in warnings[-10:]:
             mod = ctx.guild.get_member(warn.get('mod_id'))
             embed.add_field(
                 name=f"Case {warn.get('case_id')}",
-                value=f"**Moderator:** {mod.mention if mod else 'Unknown'}\n"
-                      f"**Reason:** {warn.get('reason') or 'No reason provided'}",
+                value=f"**Moderator:** {mod.mention if mod else 'Unknown'}\n**Reason:** {warn.get('reason') or 'No reason provided'}",
                 inline=False
             )
             
@@ -1161,7 +1101,6 @@ class Moderation(commands.Cog):
             
         self.bot.settings.set_server_setting(ctx.guild.id, 'mod_logs', new_logs)
         await ctx.send(f"Cleared {removed} warning(s) from **{member.name}**")
-        
         await self.log_mod_action(ctx, "Warnings Cleared", member, self.generate_case_id())
 
     async def log_mod_action(self, ctx, action: str, target: Union[discord.Member, discord.User], case_id: str, *, reason: str = None, duration: str = None, expires_at: int = None):
@@ -1181,8 +1120,6 @@ class Moderation(commands.Cog):
                 f"**Moderator:** {ctx.author.mention}\n`{ctx.author.id}`\n"
                 f"**Case ID:** `{case_id}`"
                 + (f"\n**Duration:** {duration}" if duration else "")
-
-
                 + (f"\n**Expires:** <t:{expires_at}:R>" if expires_at else "")
                 + (f"\n\n**Reason:**\n> {reason}" if reason else "\n\n**Reason:** No reason provided")
             )
