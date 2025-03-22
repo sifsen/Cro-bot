@@ -68,36 +68,10 @@ class Fun(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    @commands.command()
-    async def rps(self, ctx, choice: str):
-        """Play Rock Paper Scissors"""
-        choice = choice.lower()
-        if choice not in ['rock', 'paper', 'scissors']:
-            await ctx.send("Please choose rock, paper, or scissors!")
-            return
-        if not choice:
-            await ctx.send("Please choose rock, paper, or scissors!")
-            return
-        
-        bot_choice = random.choice(['rock', 'paper', 'scissors'])
-        
-        wins = {
-            'rock': 'scissors',
-            'paper': 'rock', 
-            'scissors': 'paper'
-        }
-        
-        if choice == bot_choice:
-            await ctx.send(f"I chose **{bot_choice}**! It's a tie!")
-        elif wins[choice] == bot_choice:
-            await ctx.send(f"I chose **{bot_choice}**! You win!")
-        else:
-            await ctx.send(f"I chose **{bot_choice}**! You lose!")
-
     @commands.command(aliases=['cf', 'flip'])
     async def coinflip(self, ctx):
         """Flip a coin"""
-        result = random.choice(['Heads', 'Tails'])
+        result = random.choice(['heads', 'tails'])
         await ctx.send(f"You got **{result}**!")
 
     ###########################
@@ -140,26 +114,6 @@ class Fun(commands.Cog):
         await ctx.send(f"{random.choice(pats)} *pats {member.mention}*")
 
     @commands.command()
-    async def bonk(self, ctx, member: discord.Member = None):
-        """Bonk someone"""
-        if member is None:
-            await ctx.send("You need to specify someone to bonk!")
-            return
-            
-        if member == ctx.author:
-            await ctx.send("You bonked yourself... why would you do that?")
-            return
-            
-        bonks = [
-            "bonk! Go to horny jail",
-            "*bonks with newspaper*",
-            "**BONK**",
-            "*tactical bonk incoming*",
-            "B O N K"
-        ]
-        await ctx.send(f"{member.mention} {random.choice(bonks)}")
-
-    @commands.command()
     async def boop(self, ctx, member: discord.Member = None):
         """Boop someone's nose"""
         if member is None:
@@ -184,27 +138,6 @@ class Fun(commands.Cog):
         ]
         
         await ctx.send(f"{member.mention} {random.choice(boops)}")
-
-    @commands.command()
-    async def poke(self, ctx, member: discord.Member = None):
-        """Poke someone"""
-        if member is None:
-            await ctx.send("You need to specify someone to poke!")
-            return
-            
-        if member == ctx.author:
-            await ctx.send("You poked yourself... why?")
-            return
-            
-        pokes = [
-            "*poke*",
-            "**POKE**",
-            "*aggressive poke*",
-            "*gentle poke*",
-            "*sneaky poke*",
-            "*pokes repeatedly*"
-        ]
-        await ctx.send(f"{member.mention} {random.choice(pokes)}")
 
     @commands.command()
     async def slap(self, ctx, member: discord.Member = None):
@@ -263,92 +196,6 @@ class Fun(commands.Cog):
             "undefined behavior"
         ]
         await ctx.send(f"{ctx.author.name} throws {random.choice(items)} at {member.mention}")
-
-    ###########################
-    ## Food & Drink Commands
-    ###########################
-    @commands.command()
-    async def sandwich(self, ctx, member: discord.Member = None):
-        """Make a sandwich for someone"""
-        member = member or ctx.author
-        
-        breads = ["🍞", "🥖", "🥯", "🥪"]
-        fillings = ["🧀", "🥓", "🥚", "🥬", "🍅", "🥕", "🥩", "🥑"]
-        
-        sandwich = (
-            f"{random.choice(breads)} "
-            f"{' '.join(random.sample(fillings, k=random.randint(2, 4)))} "
-            f"{random.choice(breads)}"
-        )
-        
-        if member == ctx.author:
-            await ctx.send(f"You made yourself a sandwich: {sandwich}")
-        else:
-            await ctx.send(f"You made {member.mention} a sandwich: {sandwich}")
-
-    @commands.command()
-    async def soup(self, ctx, member: discord.Member = None):
-        """Give someone some soup"""
-        member = member or ctx.author
-        
-        soups = ["🥣", "🍜", "🍲"]
-        temps = ["hot", "warm", "lukewarm", "cold"]
-        types = [
-            "tomato", "chicken noodle", "mushroom", 
-            "mystery", "void", "cosmic", "potato",
-            "debugger's", "binary", "quantum"
-        ]
-        
-        soup = f"{random.choice(temps)} {random.choice(types)} soup {random.choice(soups)}"
-        
-        if member == ctx.author:
-            await ctx.send(f"You made yourself some {soup}")
-        else:
-            await ctx.send(f"You gave {member.mention} some {soup}")
-
-    @commands.command()
-    async def sip(self, ctx):
-        """Take a sip"""
-        sips = [
-            "*sips tea*",
-            "*sips coffee aggressively*",
-            "*slurps loudly*",
-            "*sips in judgement*",
-            "*takes a long sip*",
-            "*sips awkwardly*"
-        ]
-        await ctx.send(f"{ctx.author.name} {random.choice(sips)}")
-
-    @commands.command()
-    async def nom(self, ctx, member: discord.Member = None, *, thing: str = None):
-        """Nom something or someone"""
-        noms = [
-            "*nom nom nom*",
-            "*aggressive nomming*",
-            "*nibble*",
-            "*monch*",
-            "*cronch*",
-            "*happy nomming sounds*"
-        ]
-        
-        if member:
-            if member == ctx.author:
-                await ctx.send("You tried to nom yourself... how does that even work?")
-                return
-                
-            if member.bot:
-                await ctx.send("You can't nom bots! You might chip a tooth!")
-                return
-                
-            await ctx.send(f"{member.mention} *{ctx.author.name} noms you* {random.choice(noms)}")
-        elif thing:
-            if '@everyone' in thing or '@here' in thing:
-                await ctx.send("Nice try!")
-                return
-            thing = discord.utils.escape_mentions(thing)
-            await ctx.send(f"*{ctx.author.name} noms {thing}* {random.choice(noms)}")
-        else:
-            await ctx.send(f"*{ctx.author.name} noms the air*")
 
     ###########################
     ## Cookie System Commands
@@ -504,209 +351,8 @@ class Fun(commands.Cog):
             await ctx.send(f"You gave **{amount}** cookies to {member.display_name}!")
 
     ###########################
-    ## Expression Commands
-    ###########################
-    @commands.command()
-    async def stare(self, ctx, member: discord.Member = None):
-        """Stare at someone"""
-        if member is None:
-            await ctx.send("You need to specify someone to stare at!")
-            return
-            
-        if member == ctx.author:
-            await ctx.send("You stare at yourself in the mirror...")
-            return
-            
-        stares = [
-            "ಠ_ಠ",
-            "ಠ_ರೃ",
-            "ಠ▃ಠ",
-            "ಠ╮╮ಠ",
-            "(╬ಠ益ಠ)",
-            "(｀_´)ゞ"
-        ]
-        await ctx.send(f"{member.mention} *{ctx.author.name} stares at you* {random.choice(stares)}")
-
-    @commands.command()
-    async def squint(self, ctx, member: discord.Member = None):
-        """Squint suspiciously at someone"""
-        if member is None:
-            await ctx.send("You need to specify someone to squint at!")
-            return
-            
-        if member == ctx.author:
-            await ctx.send("You squint at yourself in confusion...")
-            return
-            
-        squints = [
-            "눈_눈",
-            "-᷅_-᷄",
-            "≖_≖",
-            "( ⚆ _ ⚆ )",
-            "(-_-;)"
-        ]
-        await ctx.send(f"{member.mention} *{ctx.author.name} squints suspiciously* {random.choice(squints)}")
-
-    @commands.command()
-    async def flail(self, ctx):
-        """Flail around"""
-        flails = [
-            "ヽ(°〇°)ﾉ",
-            "༼ノ◕ヮ◕༽ノ",
-            "(ノ°□°)ノ",
-            "┗(｀Дﾟ┗(｀ﾟДﾟ´)┛ﾟД´)┛",
-            "ヽ(。_°)ノ",
-            "ヽ(ﾟДﾟ)ﾉ"
-        ]
-        await ctx.send(f"*{ctx.author.name} flails around* {random.choice(flails)}")
-
-    @commands.command()
-    async def lurk(self, ctx):
-        """Lurk in the shadows"""
-        lurks = [
-            "┬┴┬┴┤(･_├┬┴┬┴",
-            "┬┴┬┴┤ ͜ʖ ͡°) ├┬┴┬┴",
-            "┬┴┬┴┤･ω･)ﾉ├┬┴┬┴",
-            "┬┴┬┴┤(･_├┬┴┬┴",
-            "┬┴┬┴┤(･_├┬┴┬┴",
-            "┬┴┬┴┤ ͡° ͜ʖ ͡°)├┬┴┬┴"
-        ]
-        await ctx.send(f"*{ctx.author.name} lurks menacingly* {random.choice(lurks)}")
-
-    @commands.command()
-    async def wiggle(self, ctx):
-        """Wiggle wiggle wiggle"""
-        wiggles = [
-            "~(˘▾˘~)",
-            "(~˘▾˘)~",
-            "⊂((・▽・))⊃",
-            "└[∵┌]└[ ∵ ]┘[┐∵]┘",
-            "(〜￣△￣)〜",
-            "♪～(´ε｀ )"
-        ]
-        await ctx.send(f"*{ctx.author.name} wiggles* {random.choice(wiggles)}")
-
-    @commands.command()
-    async def panic(self, ctx):
-        """PANIC!!!"""
-        panics = [
-            "(ノ°Д°）ノ︵ ┻━┻",
-            "┻━┻ ︵ヽ(`Д´)ﾉ︵ ┻━┻",
-            "(╯°□°）╯︵ ┻━┻",
-            "┻━┻ミ＼(≧ﾛ≦＼)",
-            "(┛◉Д◉)┛彡┻━┻",
-            "(┛ಸ_ಸ)┛彡┻━┻"
-        ]
-        await ctx.send(f"*{ctx.author.name} panics* {random.choice(panics)}")
-
-    @commands.command()
-    async def unflip(self, ctx):
-        """Restore order to the tables"""
-        unflips = [
-            "┬─┬ノ( º _ ºノ)",
-            "┬─┬ノ(ಠ_ಠノ)",
-            "┬─┬ノ( º _ ºノ)",
-            "┬──┬◡ﾉ(° -°ﾉ)",
-            "┬━┬ ノ( ゜-゜ノ)",
-            "┬──┬ ¯\\_(ツ)"
-        ]
-        await ctx.send(f"*{ctx.author.name} restores order* {random.choice(unflips)}")
-
-    @commands.command()
-    async def smug(self, ctx):
-        """Be smug"""
-        smugs = [
-            "（￣～￣）",
-            "(￣⊙￣)",
-            "(-‿◦☀)",
-            "(｀ω´)",
-            "(￣ω￣)",
-            "(｀∀´)Ψ"
-        ]
-        await ctx.send(f"*{ctx.author.name} looks smug* {random.choice(smugs)}")
-
-    @commands.command()
-    async def confused(self, ctx):
-        """Express confusion"""
-        confusions = [
-            "(⊙_⊙)？",
-            "⊙.☉",
-            "(⊙.⊙)",
-            "( ・◇・)？",
-            "(●__●)",
-            "ಠಿ_ಠ"
-        ]
-        await ctx.send(f"*{ctx.author.name} is confused* {random.choice(confusions)}")
-
-    @commands.command()
-    async def yawn(self, ctx):
-        """*yawns contagiously*"""
-        yawns = [
-            "(๑ᵕ⌓ᵕ̤)",
-            "（´≧Д≦）",
-            "(∙ө∙)",
-            "(˶ᵔ ᵕ ᵔ˶)",
-            "( ⚈̥̥̥̥̥́⌢⚈̥̥̥̥̥̀)",
-            "(◞ ‸ ◟)"
-        ]
-        await ctx.send(f"*{ctx.author.name} yawns* {random.choice(yawns)}")
-
-    @commands.command()
-    async def nap(self, ctx):
-        """Take a quick nap"""
-        naps = [
-            "(-, - )…zzzZZZ",
-            "(∪｡∪)｡｡｡zzz",
-            "(-_-) zzz",
-            "(ᴗ˳ᴗ)",
-            "✾(〜 ☌ω☌)〜✾",
-            "(⊃◜⌓◝⊂)"
-        ]
-        await ctx.send(f"*{ctx.author.name} takes a nap* {random.choice(naps)}")
-
-    @commands.command()
-    async def grump(self, ctx):
-        """Be grumpy"""
-        grumps = [
-            "( ╯°□°)╯",
-            "(｀Д´)",
-            "( ͠° ͟ʖ ͡°)",
-            "(⋋▂⋌)",
-            "(≖︿≖ )",
-            "( ง ᵒ̌皿ᵒ̌)ง⁼³₌₃"
-        ]
-        await ctx.send(f"*{ctx.author.name} is grumpy* {random.choice(grumps)}")
-        
-    ###########################
     ## Text Manipulation Commands
     ###########################
-    @commands.command()
-    async def emojify(self, ctx, *, text: str):
-        """Convert text to regional indicators"""
-        if '@everyone' in text or '@here' in text:
-            await ctx.send("Nice try!")
-            return
-        text = discord.utils.escape_mentions(text)
-        
-        char_map = {
-            ' ': '   ',
-            '!': ':exclamation:',
-            '?': ':question:',
-            '#': ':hash:',
-            '*': ':asterisk:'
-        }
-        
-        output = ''
-        for char in text.lower():
-            if char.isalpha():
-                output += f":regional_indicator_{char}: "
-            elif char in char_map:
-                output += char_map[char] + ' '
-            else:
-                output += char + ' '
-                
-        await ctx.send(output)
-
     @commands.command()
     async def reverse(self, ctx, *, text: str):
         """Reverse any text"""
@@ -902,19 +548,6 @@ class Fun(commands.Cog):
         
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['google'])
-    async def lmgtfy(self, ctx, *, search_terms: str):
-        """Create a Let Me Google That For You link"""
-        clean_terms = discord.utils.escape_mentions(search_terms)
-        clean_terms = discord.utils.escape_markdown(clean_terms)
-        encoded_terms = urllib.parse.quote_plus(clean_terms)
-        
-        if len(encoded_terms) > 500:
-            await ctx.send("Search query too long!")
-            return
-            
-        await ctx.send(f"<https://letmegooglethat.com/?q={encoded_terms}>")
-
     ###########################
     ## Miscellaneous Commands
     ###########################
@@ -951,19 +584,6 @@ class Fun(commands.Cog):
         ]
             
         await ctx.send(f"{random.choice(responses)}")
-
-    @commands.command()
-    async def f(self, ctx, *, reason: str = None):
-        """Pay respects"""
-        if reason:
-            if '@everyone' in reason or '@here' in reason:
-                await ctx.send("Nice try!")
-                return
-            reason = discord.utils.escape_mentions(reason)
-            
-        hearts = ['❤️', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍']
-        reason_text = f" for {reason}" if reason else ""
-        await ctx.send(f"**{ctx.author.name}** has paid their respects{reason_text} {random.choice(hearts)}")
 
     @commands.command(aliases=['ud', 'define'])
     async def urban(self, ctx, *, word: str):
